@@ -3,7 +3,7 @@ from analysis.interpolation import Interpolation
 
 testGaps = 70-1
 numberOfLabels = 6
-numberOfTestRows = 3
+numberOfTestRows = 6
 
 class TestInterpolation(unittest.TestCase):
     interpolation = Interpolation("./TestData/test_data.xlsx", "TestSheet", testGaps)

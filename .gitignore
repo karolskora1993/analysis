@@ -2,3 +2,5 @@
 analysis/filesToCut.py
 analysis/FilesToInterpolate.py
 *.xlsx
+
+*.csv
