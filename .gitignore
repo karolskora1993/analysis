@@ -1,0 +1,4 @@
+# Untracked files:
+analysis/filesToCut.py
+analysis/FilesToInterpolate.py
+*.xlsx
