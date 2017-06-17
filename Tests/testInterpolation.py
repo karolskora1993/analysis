@@ -4,6 +4,7 @@ from analysis.interpolation import Interpolation
 testGaps = 70-1
 numberOfLabels = 6
 numberOfTestRows = 6
+gapsAfterLast = 39
 
 class TestInterpolation(unittest.TestCase):
     interpolation = Interpolation("./TestData/test_data.xlsx", "TestSheet", testGaps)
@@ -27,6 +28,11 @@ class TestInterpolation(unittest.TestCase):
         for label in self.interpolation.columnLabels:
             self.assertEqual((numberOfTestRows - 1) * (testGaps + 1) +1, len(self.df[label]))
 
+    def testShouldExtendDataFrameToGivenSizeWithGapsAfter(self):
+        interpolation = Interpolation("./TestData/test_data.xlsx", "TestSheet", testGaps, gapsAfterLast)
+        df = interpolation.linear()
+        for label in interpolation.columnLabels:
+            self.assertEqual((numberOfTestRows - 1) * (testGaps + 1) + 1 + gapsAfterLast, len(df[label]))
 
 def testInterpolation():
     unittest.main()

@@ -8,15 +8,16 @@ class Interpolation(object):
     columnLabels = None
     newElements = None
     newData = None
+    gapsAfter = 0
 
     def __init__(self):
         print("Warning! Test init!")
 
-    def __init__(self, fileName, sheetName, gaps):
+    def __init__(self, fileName, sheetName, gaps, gapsAfterLast=0):
         super()
         self.openFile(fileName, sheetName)
         self.createData(gaps)
-
+        self.gapsAfter = gapsAfterLast
 
     def linear(self):
         self.extendData()
@@ -53,16 +54,24 @@ class Interpolation(object):
     def extendData(self):
         for label in self.columnLabels:
             self.newData[label].append(self.sheet[label][0])
-            for element in self.sheet[label][1:]:
+            for element in self.sheet[label][1:-1]:
                 self.newData[label].extend(self.newElements)
                 self.newData[label].append(element)
+
+            if self.gapsAfter != 0:
+                self.newData[label].extend([np.NaN] * self.gapsAfter)
+                self.newData[label].append(self.sheet[label].iloc[-1])
+            else:
+                self.newData[label].extend(self.newElements)
+                self.newData[label].append(self.sheet[label].iloc[-1])
+
         print("data extended")
 
 
 def main():
 
     for file in FilesToInterpolate.files:
-        interpolation = Interpolation(file['name'] + '.xlsx', file['sheet_name'], file['gaps'])
+        interpolation = Interpolation(file['name'] + '.xlsx', file['sheet_name'], file['gaps'], file['gapsAfter'])
         df = interpolation.linear()
         df.to_csv(file['destinationName'] + '.csv')
         print('file ' + file['name'] + ' interpolated')
