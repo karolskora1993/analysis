@@ -4,3 +4,7 @@ analysis/FilesToInterpolate.py
 *.xlsx
 
 *.csv
+
+analysis/blocks.py
+
+analysis/filesToConcat.py

@@ -1,7 +1,7 @@
 import pandas as pd
 from analysis import filesToCut
 
-class Pack(object):
+class DataPacker(object):
 
     sheet = None
     columnLabels = None
@@ -36,7 +36,7 @@ class Pack(object):
 
 def main():
     for file in filesToCut.files:
-        pack = Pack(file['name'] + '.xlsx', file['sheet_name'], file['gaps'])
+        pack = DataPacker(file['name'] + '.xlsx', file['sheet_name'], file['gaps'])
 
         df = pack.cut()
         df.to_csv(file['destinationName'] + '.csv')

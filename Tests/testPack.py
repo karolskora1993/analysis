@@ -1,12 +1,12 @@
 import unittest
-from analysis.Pack import Pack
+from analysis.DataPacker import DataPacker
 
 testGaps = 6
 numberOfLabels = 6
 numberOfTestRows = 121
 
 class TestPack(unittest.TestCase):
-    testInstance = Pack("./TestData/cut_test_data.xlsx", "TestSheet", testGaps)
+    testInstance = DataPacker("./TestData/cut_test_data.xlsx", "TestSheet", testGaps)
     df = None
 
     def testShouldOpenFile(self):
