@@ -8,3 +8,7 @@ analysis/FilesToInterpolate.py
 analysis/blocks.py
 
 analysis/filesToConcat.py
+
+*.xml
+
+*.pyc

@@ -12,7 +12,28 @@ def main():
     resultDf.to_csv(DEST_PATH + 'VRM-Próbki-1s-1min.csv')
 
 
-if __name__ == '__main__':
-    main()
+def append():
+    files = [
+        DEST_PATH + 'csv_all',
+        DEST_PATH + 'VRM-Próbki-60s',
+        DEST_PATH + 'csv_all_v2'
 
+    ]
+
+    allData = pd.read_csv(files[0]+'.csv')
+    print('read all data')
+    print("columns:{0}".format(len(allData.columns)))
+    dataToAppend = pd.read_csv(files[1]+'.csv',)
+    print('read data to append')
+    print("columns:{0}".format(len(dataToAppend.columns)))
+    dataToAppend.pop('timestamp')
+    print("columnsa fter pop:{0}".format(len(dataToAppend.columns)))
+    allData = allData.join(dataToAppend)
+    print("columns:{0}".format(len(allData.columns)))
+
+    allData.to_csv(files[2]+'.csv')
+    print("save to file")
+
+if __name__ == '__main__':
+    append()
 
