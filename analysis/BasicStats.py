@@ -2,8 +2,10 @@ import pandas as pd
 import os
 
 
-PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/'
-OUTPUT_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/stats/'
+BLOCKS_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki/'
+ALL_DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v2.csv'
+
+OUTPUT_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/statystyki/'
 
 
 def calculateStats(dataFrame):
@@ -25,7 +27,7 @@ def loadDataFrame(file):
 
 
 def saveStatsToFile(stats, fileName):
-    outputFullPath = OUTPUT_PATH + fileName + '_basicstats'
+    outputFullPath = OUTPUT_PATH + fileName + '_stats'
     with open(outputFullPath, 'w') as file:
         for label in stats.keys():
             file.write('Zmienna: ' + label + '\n')
@@ -34,22 +36,23 @@ def saveStatsToFile(stats, fileName):
 
 
 def saveCorrToFile(corr, fileName):
-    outputFullPath = OUTPUT_PATH + fileName + '_corr'
-    with open(outputFullPath, 'w') as file:
-        for method in corr.keys():
-            file.write('Metoda: ' + method + '\n')
-            file.write(corr[method].to_string())
-            file.write('\n\n\n')
+    outputFullPath = OUTPUT_PATH + fileName
+    corr.to_csv(outputFullPath)
 
 
 def main():
-    for csv_file in [file for file in os.listdir(PATH) if file.endswith('.csv')]:
-        fullPath = PATH + csv_file
+    for csv_file in [file for file in os.listdir(BLOCKS_PATH) if file.endswith('.csv')]:
+        fullPath = BLOCKS_PATH + csv_file
         df = loadDataFrame(fullPath)
         stats = calculateStats(df)
         saveStatsToFile(stats, csv_file)
-        corr = calculateCorr(df)
-        saveCorrToFile(corr, csv_file)
+        print('file {0} saved'.format(csv_file))
+
+    df = loadDataFrame(ALL_DATA_PATH)
+    print('data loaded')
+    corr = calculateCorr(df)
+    print('corr calculated')
+    saveCorrToFile(corr, "all_corr.csv")
 
 
 main()
