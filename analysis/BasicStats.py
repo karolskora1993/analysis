@@ -17,7 +17,7 @@ def calculateStats(dataFrame):
 
 def calculateCorr(dataFrame):
     corr = {}
-    for method in ['pearson', 'kendall', 'spearman']:
+    for method in ['pearson']:
         corr[method] = dataFrame.corr(method=method)
     return corr
 
@@ -36,8 +36,9 @@ def saveStatsToFile(stats, fileName):
 
 
 def saveCorrToFile(corr, fileName):
-    outputFullPath = OUTPUT_PATH + fileName
-    corr.to_csv(outputFullPath)
+    for key in corr:
+        outputFullPath = OUTPUT_PATH + fileName + key + '.csv'
+        corr[key].to_csv(outputFullPath)
 
 
 def main():
@@ -52,7 +53,7 @@ def main():
     print('data loaded')
     corr = calculateCorr(df)
     print('corr calculated')
-    saveCorrToFile(corr, "all_corr.csv")
+    saveCorrToFile(corr, "all_corr")
 
 
 main()
