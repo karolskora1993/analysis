@@ -6,12 +6,7 @@ VARS = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/kolumny.xlsx'
 DEST_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki/'
 
 class DataDivider:
-
-    blocks_data = None
-    block_names = None
-    data = None
-    dest_path = None
-
+    
     def __init__(self, blocks_path, block_names, data_path, destination_path):
         self.blocks_data = pd.read_excel(blocks_path, sheetname=block_names)
         self.blocks_names = block_names
@@ -49,7 +44,7 @@ class DataDivider:
                 print('{0} zapisany'.format(key))
 
 def main():
-    data_divider = DataDivider(BLOCKS_PATH, ['Blok I', 'Blok II', 'Blok III', 'Blok IV'], DATA_PATH, DEST_PATH)
+    data_divider = DataDivider(BLOCKS_PATH, ['blok I', 'blok II', 'blok III', 'blok IV'], DATA_PATH, DEST_PATH)
     data_divider.divide_into_groups()
 
 if __name__ == '__main__':
