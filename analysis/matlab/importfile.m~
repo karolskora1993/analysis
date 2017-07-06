@@ -6,9 +6,6 @@ function output = importfile(filename, variable_names)
     format = '';
     for i = 1:length(variable_names)
         format = strcat(format,'%f');
-        if contains(variable_names{i}, '.')
-            variable_names{i} = strrep(variable_names{i},'.','_');
-        end
     end
     format = strcat(format, '%[^\n\r]');
     fileID = fopen(filename,'r');
