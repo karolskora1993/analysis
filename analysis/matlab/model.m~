@@ -1,0 +1,12 @@
+BLOCK_DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki/';
+BLOCKS = '/Users/apple/Desktop/mag/bloki_poprawione.xlsx';
+
+BLOCK_NAMES = {'block I', 'block II', 'block III', 'block IV'};
+
+for name = BLOCK_NAMES
+    block_name = name{1};
+    
+    
+end
+    
+

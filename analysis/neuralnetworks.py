@@ -21,9 +21,9 @@ def load_block_vars():
 
 def define_model(input_size, output_size):
     model = Sequential()
-    model.add(Dense(input_size, input_dim=input_size, activation='relu'))
-    model.add(Dense(input_size, activation='relu'))
-    model.add(Dense(output_size, activation='sigmoid'))
+    # model.add(Dense(input_size, input_dim=input_size, activation='relu'))
+    # model.add(Dense(input_size, activation='relu'))
+    # model.add(Dense(output_size, activation='sigmoid'))
     return model
 
 
