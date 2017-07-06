@@ -6,7 +6,7 @@ BLOCK_NAMES = {'blok I', 'blok II', 'blok III', 'blok IV'};
 for name = BLOCK_NAMES
     block_name = name{1};
     [in, control, out] = load_block_vars(BLOCKS, block_name);
-    
+    block_data = importfile(strcat(BLOCK_DATA_PATH, strcat(block_name,'.csv')));
 end
     
 
