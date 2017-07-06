@@ -11,11 +11,14 @@ function [in,control,out] = load_block_vars(file_path, block_name)
     out_all = cellstr(stringVectors(:,3));
     [I, ~] = find(cellfun(@(s) contains(s, '#'), in_all));
     in_all(I, :) = [];
+    in = in_all;
     [I, ~] = find(cellfun(@(s) contains(s, '#'), control_all));
-    control_all(I, :) = [];    
+    control_all(I, :) = [];
+    control = control_all;
+    
     [I, ~] = find(cellfun(@(s) contains(s, '#'), out_all));
     out_all(I, :) = [];
-    in = in_all;
-    control = control_all;
+        in = in_all;
+
     out = out_all;
 end

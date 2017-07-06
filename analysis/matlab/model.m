@@ -7,6 +7,9 @@ for name = BLOCK_NAMES
     block_name = name{1};
     [in, control, out] = load_block_vars(BLOCKS, block_name);
     block_data = importfile(strcat(BLOCK_DATA_PATH, strcat(block_name,'.csv')));
+    in_data = block_data(1:end, in);
+    control_data = block_data(1:end, control);
+    out_data = block_data(1:end, out);
 end
     
 
