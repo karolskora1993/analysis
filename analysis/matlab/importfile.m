@@ -3,7 +3,7 @@ function output = importfile(filename, variable_names)
     startRow = 2;
     endRow = inf;
     
-    format = '';
+    format = '%*s';
     for i = 1:length(variable_names)
         format = strcat(format,'%f');
         if contains(variable_names{i}, '.')
@@ -13,7 +13,6 @@ function output = importfile(filename, variable_names)
     format = strcat(format, '%[^\n\r]');
     fileID = fopen(filename,'r');
     dataArray = textscan(fileID, format, endRow(1)-startRow(1)+1, 'Delimiter', delimiter, 'TextType', 'string', 'EmptyValue', NaN, 'HeaderLines', startRow(1)-1, 'ReturnOnError', false, 'EndOfLine', '\r\n');
-    
     for block=2:length(startRow)
         frewind(fileID);
         dataArrayBlock = textscan(fileID, format, endRow(block)-startRow(block)+1, 'Delimiter', delimiter, 'TextType', 'string', 'EmptyValue', NaN, 'HeaderLines', startRow(block)-1, 'ReturnOnError', false, 'EndOfLine', '\r\n');
