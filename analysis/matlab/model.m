@@ -26,10 +26,11 @@ for name = BLOCK_NAMES
     in_data = block_data(1:end, in);
     control_data = block_data(1:end, control);
     out_data = block_data(1:end, out);
-    train_length = length(in_data) * 7/8
-%     ann = fitnet(30);
-%     ann = train(in_data, out_data);
-    
+    data_size = size(in_data);
+    train_length = data_size(1) * 7/8;
+    ann = fitnet(30);
+    x = table2cell(in_data(1:train_length, :))';
+    y = table2cell(out_data(1:train_length, :))';
+    ann = train(ann, x, y);
+    evaluate(in_data(train_length+1:end, :), out_data(train_length+1:end, :), ann)
 end
-    
-

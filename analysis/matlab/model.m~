@@ -6,10 +6,19 @@ BLOCK_NAMES = {'blok I', 'blok II', 'blok III', 'blok IV'};
 for name = BLOCK_NAMES
     block_name = name{1};
     [in, control, out] = load_block_vars(BLOCKS, block_name);
-    for i = length(in)
-            if contains(i{1}{j}, '.')
-                i{1}{j} = strrep(i{1}{j},'.','_');
-            end
+    for i = 1:length(in)
+        if contains(in{i}, '.')
+                in{i} = strrep(in{i},'.','_');
+        end
+    end
+    for i = 1:length(control)
+        if contains(control{i}, '.')
+                control{i} = strrep(control{i},'.','_');
+        end
+    end
+    for i = 1:length(out)
+        if contains(out{i}, '.')
+                out{i} = strrep(out{i},'.','_');
         end
     end
     variable_names = {in{:}, control{:}, out{:}};
@@ -17,9 +26,10 @@ for name = BLOCK_NAMES
     in_data = block_data(1:end, in);
     control_data = block_data(1:end, control);
     out_data = block_data(1:end, out);
-    train_length = length(in_data) * 7/8
-%     ann = fitnet(30);
-%     ann = train(in_data, out_data);
+    data_size = size(in_data)
+    train_length = data_size(1) * 
+    ann = fitnet(30);
+    ann = train(in_data(1:train_length), out_data(1:train_length));
     
 end
     
