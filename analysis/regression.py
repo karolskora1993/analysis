@@ -8,6 +8,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import SGDRegressor
 from sklearn import svm
+from sklearn import preprocessing
 import pickle
 from math import floor
 
@@ -36,7 +37,11 @@ def linear_regresion(x, y):
 
 def logistic_regresion(x, y):
     r = LogisticRegression()
-    r.fit(np.transpose(np.matrix(x)), np.transpose(np.matrix(y)))
+    lab_enc = preprocessing.LabelEncoder()
+    y_enc = lab_enc.fit_transform(y)
+    # matrix = np.asmatrix(y_enc)
+    # transpose = np.transpose(matrix)
+    r.fit(np.transpose(np.matrix(x)), y_enc)
     return r
 
 
@@ -51,27 +56,29 @@ def single_output_regression(x, y):
 
 
 def single_output_logistic_regression(x, y):
-    print('Single output regression')
-    models = {}
+    print('Single output log regression')
+    models = []
     for output in y:
         print('new model')
         r = logistic_regresion(x, output)
-        models[output] = r
+        models.append(r)
     return models
 
 
 def multi_output_regression(x, y, regressor = svm.SVR()):
     print('multi output regression')
     r = MultiOutputRegressor(regressor)
+
     r.fit(np.transpose(np.matrix(x)), np.transpose(np.matrix(y)))
     return r
 
 
 def evaluate(model, x, y):
     y_pred = model.predict(np.transpose(np.matrix(x)))
-    r2 = model.score((np.transpose(np.matrix(x)), np.transpose(np.matrix(y))))
+    r2 = model.score(np.transpose(np.matrix(x)), np.transpose(np.matrix(y)))
     mse = mean_squared_error(y, y_pred)
-    return (r2, mse)
+    return r2, mse
+
 
 def save_model(model, file_name):
     pickle.dump(model, open(file_name, 'wb'))
@@ -94,25 +101,25 @@ def main():
 
         r_list = single_output_regression(x_train, y_train)
         for i, model in enumerate(r_list):
-            r2, mse = evaluate(model, x_test, y_test)
+            r2, mse = evaluate(model, x_test, y_test[i])
             print('r^2: {0}\n mse: {1}'.format(r2, mse))
-            save_model(model, MODELS_PATH + 'single_linear_{0}'.format(i) + '.sav')
+            save_model(model, MODELS_PATH  + block_name + '/' + 'single_linear_{0}'.format(i) + '.sav')
 
         r_list = single_output_logistic_regression(x_train, y_train)
         for i, model in enumerate(r_list):
-            r2, mse = evaluate(model, x_test, y_test)
+            r2, mse = evaluate(model, x_test, y_test[i])
             print('r^2: {0}\n mse: {1}'.format(r2, mse))
-            save_model(model, MODELS_PATH + 'single_logistic_{0}'.format(i) + '.sav')
+            save_model(model, MODELS_PATH + block_name + '/' + 'single_logistic_{0}'.format(i) + '.sav')
 
         r = multi_output_regression(x_train, y_train)
         r2, mse = evaluate(r, x_test, y_test)
         print('r^2: {0}\n mse: {1}'.format(r2, mse))
-        save_model(model, MODELS_PATH + 'multi_SVR' + '.sav')
+        save_model(model, MODELS_PATH + block_name + '/' + 'multi_SVR' + '.sav')
 
         r = multi_output_regression(x_train, y_train, SGDRegressor())
         r2, mse = evaluate(r, x_test, y_test)
         print('r^2: {0}\n mse: {1}'.format(r2, mse))
-        save_model(model, MODELS_PATH + 'multi_SGD' + '.sav')
+        save_model(model, MODELS_PATH + block_name + '/' + 'multi_SGD' + '.sav')
 
 
 if __name__ == '__main__':
