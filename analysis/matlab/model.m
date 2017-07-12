@@ -27,12 +27,14 @@ for name = BLOCK_NAMES
     control_data = block_data(1:end, control);
     out_data = block_data(1:end, out);
     data_size = size(in_data);
-    x = table2cell(in_data)';
-    y = table2cell(out_data)';
-    net = fitnet(2);
+    x = tonndata(table2array(in_data),false,false);
+    y = tonndata(table2array(out_data),false,false);
+    net = fitnet(20);
     net.divideParam.trainRatio = 87/100;
     net.divideParam.valRatio = 0/100;
     net.divideParam.testRatio = 13/100;
     [net, tr] = train(net, x, y);
-%     evaluate(in_data(train_length+1:end, :), out_data(train_length+1:end, :), ann)
+    y_out = net(x);
+    [mse, r2] = evaluate(y,y_out, net);
+    
 end
