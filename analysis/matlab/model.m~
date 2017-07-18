@@ -29,23 +29,14 @@ for name = BLOCK_NAMES
     data_size = size(in_data);
     x = tonndata(table2array(in_data),false,false);
     y = tonndata(table2array(out_data),false,false);
-    initSize = 4;
-    endSize = length(in) + 10;
-    if (length(in)-10 > 4); initSize = length(in)-10; end
-    best_mse = realmax('single');
-    best_net = fitnet(1);
-    for hiddenSizes = initSize:2:endSize
-        net = fitnet(20);
-        net.divideParam.trainRatio = 87/100;
-        net.divideParam.valRatio = 0/100;
-        net.divideParam.testRatio = 13/100;
-        net = train(net, x, y);
-        y_out = net(x);
-        mse = evaluate(y,y_out, net);
-        if mse< best_mse
-            best_net = net;
-        end
-    end
-    filename = strcat(name,'.mat');
-    save(filename,best_net);
+    initSizes = length(in) - 10>0 :
+    for hiddenSizes = :2:20
+    net = fitnet(20);
+    net.divideParam.trainRatio = 87/100;
+    net.divideParam.valRatio = 0/100;
+    net.divideParam.testRatio = 13/100;
+    net = train(net, x, y);
+    y_out = net(x);
+    mse = evaluate(y,y_out, net);
+    
 end
