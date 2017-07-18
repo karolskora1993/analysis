@@ -9,22 +9,27 @@ from math import floor
 import pickle
 from sklearn.preprocessing import StandardScaler
 from sklearn.neural_network import MLPRegressor
-from sklearn.metrics import classification_report
+from sklearn.metrics import mean_squared_error
 
 
 COL_NAMES = ['in', 'control', 'out']
 
 def simple_model(x, y, x_test, y_test):
     scaler = StandardScaler()
-    mlp = MLPRegressor(hidden_layer_sizes=(13, 13, 13), max_iter=500)
+    mlp = MLPRegressor(hidden_layer_sizes=(12, 12, 12), max_iter=500)
 
     scaler.fit(x)
-    x = scaler.transform(x)
-    x_test = scaler.transform(x_test)
-    mlp.fit(np.transpose(np.matrix(x)), np.transpose(np.matrix(y)))
+    x = np.transpose(np.matrix(scaler.transform(x)))
+    y = np.transpose(np.matrix(y))
+    x_test = np.transpose(np.matrix(scaler.transform(x_test)))
+    y_test = np.transpose(np.matrix(y_test))
+    mlp.fit(x, y)
 
     predictions = mlp.predict(x_test)
-    print(classification_report(y_test, predictions))
+    r2 = mlp.score(x_test, y_test)
+    mse = mean_squared_error(y_test, predictions)
+    print('r^2: {0}\n mse: {1}'.format(r2, mse))
+    return mlp
 
 
 def load_data(block_name):
@@ -52,9 +57,11 @@ def train_model(model, x, y, epochs, batch_size = 32):
     model.fit(x, y, epochs=epochs, batch_size=batch_size)
 
 
-def evaluate_model(model, x , y):
-    scores = model.evaluate(x, y)
-    print("\n%s: %.2f%%" % (model.metrics_names[1], scores[1] * 100))
+def evaluate(model, x, y):
+    y_pred = model.predict(np.transpose(np.matrix(x)))
+    r2 = model.score(np.transpose(np.matrix(x)), np.transpose(np.matrix(y)))
+    mse = mean_squared_error(y, y_pred)
+    return r2, mse
 
 
 def save_model(model, file_name):
@@ -71,19 +78,22 @@ def main():
         input_data = [np.array(df[x].tolist()) for x in vars_in]
         output_data = [np.array(df[x].tolist()) for x in vars_out]
         last_train_idx = 5 #floor(len(input_data[0]) * 0.875)
+        last_test_idx = 10 #len(input_data[0]) - 1
         x_train = [x[:last_train_idx] for x in input_data]
         y_train = [x[:last_train_idx] for x in output_data]
-        x_test = [x[last_train_idx:len(input_data[0]) - 1] for x in input_data]
-        y_test = [x[last_train_idx:len(output_data[0]) - 1] for x in output_data]
+        x_test = [x[last_train_idx:last_test_idx] for x in input_data]
+        y_test = [x[last_train_idx:last_test_idx] for x in output_data]
 
         #sklearn model
-        simple_model(x_train, y_train, x_test, y_test)
+        print('sklearn model')
+        model = simple_model(x_train, y_train, x_test, y_test)
 
         #Keras model
+        print('keras model')
         model = define_model(len(input_data), len(output_data))
         compile_model(model)
         train_model(model, x_train, y_train, 100)
-        evaluate_model(model, x_test, y_test)
+        evaluate(model, x_test, y_test)
 
 
 if __name__ == '__main__':
