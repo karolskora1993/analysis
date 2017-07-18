@@ -1,8 +1,11 @@
 import pandas as pd
 from analysis import blocks
 from numpy import nan
+from numpy as np
 from keras.models import Sequential
 from keras.layers import Dense
+from keras import losses
+from math import floor
 
 COL_NAMES = ['in', 'control', 'out']
 
@@ -21,18 +24,15 @@ def load_block_vars():
 
 def define_model(input_size, output_size):
     model = Sequential()
-    # model.add(Dense(input_size, input_dim=input_size, activation='relu'))
-    # model.add(Dense(input_size, activation='relu'))
-    # model.add(Dense(output_size, activation='sigmoid'))
+    model.add(Dense(output_size, input_shape=(input_size,)))
     return model
 
 
 def compile_model(model):
-    model.compile(optimizer='rmsprop', loss='mse')
+    model.compile(loss=losses.mean_squared_error, optimizer='sgd')
 
-
-def train_model(model, x, y):
-    model.fit(x, y, epochs=10, batch_size=32)
+def train_model(model, x, y, epochs, batch_size = 32):
+    model.fit(x, y, epochs=epochs, batch_size=batch_size)
 
 
 def evaluate_model(model, x , y):
@@ -46,15 +46,19 @@ def main():
         df = load_data(block_name)
         vars = blocks_vars[block_name][COL_NAMES]
         vars_in = [x for x in vars['in'] if not x is nan and not '#' in x]
-        vars_control = [x for x in vars['control'] if not x is nan and not '#' in x]
         vars_out = [x for x in vars['out'] if not x is nan and not '#' in x]
-        input_data = [df[x] for x in vars_in]
-        control_data = [df[x] for x in vars_control]
-        output_data = [df[x] for x in vars_out]
+        input_data = [np.array(df[x].tolist()) for x in vars_in]
+        output_data = [np.array(df[x].tolist()) for x in vars_out]
+        last_train_idx = floor(len(input_data[0]) * 0.875)
+        x_train = [x[:last_train_idx] for x in input_data]
+        y_train = [x[:last_train_idx] for x in output_data]
+        x_test = [x[last_train_idx:len(input_data[0]) - 1] for x in input_data]
+        y_test = [x[last_train_idx:len(output_data[0]) - 1] for x in output_data]
+
         model = define_model(len(input_data), len(output_data))
         compile_model(model)
-        train_model(model)
-        evaluate_model(model, input_data, output_data)
+        train_model(model, x_train, y_train, 100)
+        evaluate_model(model, x_test, y_test)
 
 
 if __name__ == '__main__':
