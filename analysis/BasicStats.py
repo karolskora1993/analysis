@@ -2,10 +2,10 @@ import pandas as pd
 import os
 
 
-BLOCKS_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki/'
-ALL_DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v2.csv'
+BLOCKS_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki_v2/'
+ALL_DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v3.csv'
 
-OUTPUT_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/statystyki/'
+OUTPUT_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/statystyki_v2/'
 
 
 def calculateStats(dataFrame):
@@ -27,7 +27,7 @@ def loadDataFrame(file):
 
 
 def saveStatsToFile(stats, fileName):
-    outputFullPath = OUTPUT_PATH + fileName + '_stats'
+    outputFullPath = OUTPUT_PATH + fileName + ''
     with open(outputFullPath, 'w') as file:
         for label in stats.keys():
             file.write('Zmienna: ' + label + '\n')

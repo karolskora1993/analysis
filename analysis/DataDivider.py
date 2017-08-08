@@ -1,9 +1,9 @@
 import pandas as pd
 
 BLOCKS_PATH = '/Users/apple/Desktop/mag/bloki_poprawione.xlsx'
-DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v2.csv'
+DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v3.csv'
 VARS = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/kolumny.xlsx'
-DEST_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki/'
+DEST_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki_v2/'
 
 class DataDivider:
     
@@ -39,6 +39,7 @@ class DataDivider:
                 for var_name in self.blocks_data[key]['zmienne']:
                     if not '#' in var_name:
                         block_vars.append(var_name)
+                block_vars.append('timestamp')
                 block_df = self.data[block_vars]
                 block_df.to_csv(self.dest_path+key+'.csv')
                 print('{0} zapisany'.format(key))

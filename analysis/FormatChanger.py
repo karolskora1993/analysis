@@ -19,8 +19,8 @@ def fromExcel(inputPath, sheetName,  outputPath):
 
 
 if __name__ == '__main__':
-    inputPath = DEST_PATH + 'VRM-Próbki-60s'
-    outputPath = DEST_PATH + 'VRM-Próbki-60s'
+    inputPath = DEST_PATH + 'VRM-Brakujące-Próbki-60s'
+    outputPath = DEST_PATH + 'VRM-Brakujące-Próbki-60s'
     fromExcel(inputPath, 'Arkusz1', outputPath)
 
 
