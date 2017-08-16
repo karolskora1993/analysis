@@ -12,3 +12,4 @@ analysis/filesToConcat.py
 *.xml
 
 *.pyc
+data/

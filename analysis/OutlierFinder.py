@@ -4,7 +4,7 @@ from math import floor
 
 VARS_FILE_PATH = '/Users/apple/Desktop/mag/temperatury.xlsx'
 DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v3.csv'
-SAVE_PATHS = ['/Users/apple/Desktop/mag/przestoje_polowa.p',
+SAVE_PATHS = ['/Users/apple/Desktop/mag/przestoje_polowa_v2.p',
               '/Users/apple/Desktop/mag/przestoje_wszystkie.p'
               ]
 
@@ -21,6 +21,7 @@ class OutlierFinder:
 
     def find_outliers(self, tolerance = 0.5):
         outliers = 0
+        correct_rows = 0
         outlier_indexes = []
         counter = 0
         for i, row in self._data.iterrows():
@@ -32,11 +33,19 @@ class OutlierFinder:
                 if outliers_in_row > floor((1-tolerance) * self._vars_length):
                     outliers += 1
                 else:
+                    correct_rows += 1
                     if outliers >= 30:
-                        counter += 1
-                        outlier_indexes.append({'first_idx': i-outliers, 'last_idx': i})
-                        print('{0}. first_idx:{1}, last_idx:{2}'.format(counter, i-outliers, i))
+                        if correct_rows < 30 and len(outlier_indexes) > 0:
+                            last = outlier_indexes[-1]
+                            last['last_idx'] = i
+                            print('{0}. first_idx:{1}, last_idx:{2}'.format(counter, last['first_idx'], last['last_idx']))
+                        else:
+                            counter += 1
+                            outlier_indexes.append({'first_idx': i-outliers, 'last_idx': i})
+                            print('{0}. first_idx:{1}, last_idx:{2}'.format(counter, i-outliers, i))
+                        correct_rows = 0
                     outliers = 0
+
         self.save(outlier_indexes)
 
     def save(self, outlier_indexes):
