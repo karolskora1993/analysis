@@ -1,9 +1,9 @@
 import pandas as pd
 
 BLOCKS_PATH = '/Users/apple/Desktop/mag/bloki_poprawione.xlsx'
-DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v3.csv'
+DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v4.csv'
 VARS = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/kolumny.xlsx'
-DEST_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki_v2/'
+DEST_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki_v3/'
 
 class DataDivider:
     
