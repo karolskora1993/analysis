@@ -3,21 +3,26 @@ from analysis import blocks
 from numpy import nan
 import numpy as np
 import pickle
+
 from sklearn.preprocessing import StandardScaler
 from sklearn.neural_network import MLPRegressor
 import sklearn.metrics as metrics
 from math import floor
+
 import lasagne
 from lasagne import layers
 from lasagne.updates import nesterov_momentum
 from nolearn.lasagne import NeuralNet
+from keras.models import Sequential
+from keras.layers import Dense, Activation
+
 import sys
 sys.setrecursionlimit(10000)
 
 COL_NAMES = ['in', 'control', 'out']
 
 def simple_model(x, y, x_test, y_test, y_labels, score_file):
-    mlp = MLPRegressor(hidden_layer_sizes=(200, 200, 200, 200, 200), max_iter=500)
+    mlp = MLPRegressor(hidden_layer_sizes=(100, 100, 100, 100, 100, 100), max_iter=100000)
     print('Any NaN: {0}'.format(np.any(np.isnan(x))))
     print('All finite: {0}'.format(np.all(np.isfinite(x))))
     x = np.transpose(np.matrix(x))
@@ -56,6 +61,8 @@ def load_data(block_name):
 
 
 def lasagne_model(x, y, x_test, y_test, y_labels, score_file):
+    x = np.transpose(np.matrix(x))
+    y = np.transpose(np.matrix(y))
     net = NeuralNet(
         layers=[('input', layers.InputLayer),
                 ('conv2d1', layers.Conv2DLayer),
@@ -66,17 +73,18 @@ def lasagne_model(x, y, x_test, y_test, y_labels, score_file):
                 ('output', layers.DenseLayer),
                 ],
         # input layer
-        input_shape=x.shape,
+        input_shape=(None, None, x.shape[0], x.shape[1]),
         # layer conv2d1
+        conv2d1_incoming=(None, None, x.shape[0], x.shape[1]),
         conv2d1_num_filters=32,
         conv2d1_filter_size=(5, 5),
-        conv2d1_nonlinearity=lasagne.nonlinearities.linear(),
+        conv2d1_nonlinearity=lasagne.nonlinearities.linear,
         conv2d1_W=lasagne.init.GlorotUniform(),
         # dropout1
         dropout1_p=0.5,
         # dense
         dense_num_units=256,
-        dense_nonlinearity=lasagne.nonlinearities.linear(),
+        dense_nonlinearity=lasagne.nonlinearities.linear,
         # dropout2
         dropout2_p=0.5,
         # output
@@ -96,6 +104,24 @@ def lasagne_model(x, y, x_test, y_test, y_labels, score_file):
     score(y_test, predictions, y_labels, score_file)
 
     return nn
+
+
+def keras_model(x, y, x_test, y_test, y_labels, score_file):
+    print('Keras model')
+    model = Sequential()
+    model.add(Dense(32, input_shape=x.shape))
+    model.add(Activation('relu'))
+
+    model.compile(optimizer='rmsprop',
+                  loss='mse')
+
+    model.fit(x, y, epochs=100, batch_size=32)
+    model.evaluate(x_test, y_test, batch_size=32)
+
+    predictions = model.predict(x_test)
+    score(predictions, y_test, y_labels,score_file)
+
+    return model
 
 
 def load_block_vars():
@@ -129,7 +155,7 @@ def main():
         y_test = [x[last_train_idx:last_test_idx] for x in output_data]
 
         #sklearn model
-        # name = 'sklearn_model_default_200_200_200_200_200_{0}'.format(block_name)
+        # name = 'sklearn_model_default_6x100_{0}'.format(block_name)
         # print('sklearn model {0}'.format(name))
         # score_file = blocks.MODEL_SAVE_PATH + '/scores/' + name + '.txt'
         # model = simple_model(x_train, y_train, x_test, y_test, vars_out, score_file)
@@ -137,12 +163,21 @@ def main():
         # save_model(model, save_file)
 
         #lasagne model
-        name = 'lasagne_model_1_{0}'.format(block_name)
-        print('lasagne model {0}'.format(name))
+        # name = 'lasagne_model_1_{0}'.format(block_name)
+        # print('lasagne model {0}'.format(name))
+        # score_file = blocks.MODEL_SAVE_PATH + '/scores/' + name + '.txt'
+        # model = lasagne_model(np.asarray(x_train), np.asarray(y_train), np.asarray(x_test), np.asarray(y_test), vars_out, score_file)
+        # save_file = blocks.MODEL_SAVE_PATH + name + '.p'
+        # save_model(model, save_file)
+
+        #keras model
+        name = 'keras_model_test_{0}'.format(block_name)
+        print('keras model {0}'.format(name))
         score_file = blocks.MODEL_SAVE_PATH + '/scores/' + name + '.txt'
-        model = lasagne_model(x_train, y_train, x_test, y_test, vars_out, score_file)
+        model = keras_model(np.asarray(x_train), np.asarray(y_train), np.asarray(x_test), np.asarray(y_test), vars_out, score_file)
         save_file = blocks.MODEL_SAVE_PATH + name + '.p'
         save_model(model, save_file)
+
 
 if __name__ == '__main__':
     main()
