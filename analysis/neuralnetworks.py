@@ -13,8 +13,9 @@ import lasagne
 from lasagne import layers
 from lasagne.updates import nesterov_momentum
 from nolearn.lasagne import NeuralNet
+
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Activation, Dropout
 
 import sys
 sys.setrecursionlimit(10000)
@@ -108,14 +109,30 @@ def lasagne_model(x, y, x_test, y_test, y_labels, score_file):
 
 def keras_model(x, y, x_test, y_test, y_labels, score_file):
     print('Keras model')
-    model = Sequential()
-    model.add(Dense(32, input_shape=x.shape))
-    model.add(Activation('relu'))
+    print('Any NaN: {0}'.format(np.any(np.isnan(x))))
+    print('All finite: {0}'.format(np.all(np.isfinite(x))))
+    x = np.transpose(np.matrix(x))
+    y = np.transpose(np.matrix(y))
+    x_test = np.transpose(np.matrix(x_test))
+    y_test = np.transpose(np.matrix(y_test))
+    scaler = StandardScaler().fit(x)
+    x = scaler.transform(x)
+    x_test = scaler.transform(x_test)
+    print('scale')
 
-    model.compile(optimizer='rmsprop',
+    model = Sequential()
+    model.add(Dense(50, input_dim=x.shape[1]))
+    model.add(Dropout(0.5))
+    model.add(Dense(100, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(50, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(len(y_labels), activation='linear'))
+
+    model.compile(optimizer='adam',
                   loss='mse')
 
-    model.fit(x, y, epochs=100, batch_size=32)
+    model.fit(x, y, epochs=500, batch_size=32, verbose=2)
     model.evaluate(x_test, y_test, batch_size=32)
 
     predictions = model.predict(x_test)
