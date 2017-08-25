@@ -38,12 +38,12 @@ def simple_model(x, y, x_test, y_test, y_labels, score_file):
     print('fit')
     predictions = mlp.predict(x_test)
     print('predict')
-    score(y_test, predictions, y_labels, score_file)
+    score(predictions, y_test, y_labels, score_file)
     return mlp
 
 
 def score(predictions, y_test, y_labels, score_file):
-    columns = len(y_test[0, :])
+    columns = predictions.shape[1]
     with open(score_file, 'w') as f:
         for i in range(0, columns):
             r2 = metrics.r2_score(y_test[:, i], predictions[:, i])
@@ -115,15 +115,19 @@ def keras_model(x, y, x_test, y_test, y_labels, score_file):
     y = np.transpose(np.matrix(y))
     x_test = np.transpose(np.matrix(x_test))
     y_test = np.transpose(np.matrix(y_test))
+
     scaler = StandardScaler().fit(x)
     x = scaler.transform(x)
     x_test = scaler.transform(x_test)
     print('scale')
+    print('X:{0} Y:{1}'.format(x.shape, y.shape))
 
     model = Sequential()
     model.add(Dense(50, input_dim=x.shape[1]))
     model.add(Dropout(0.5))
-    model.add(Dense(100, activation='relu'))
+    model.add(Dense(50, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(50, activation='relu'))
     model.add(Dropout(0.5))
     model.add(Dense(50, activation='relu'))
     model.add(Dropout(0.5))
@@ -132,11 +136,12 @@ def keras_model(x, y, x_test, y_test, y_labels, score_file):
     model.compile(optimizer='adam',
                   loss='mse')
 
-    model.fit(x, y, epochs=500, batch_size=32, verbose=2)
-    model.evaluate(x_test, y_test, batch_size=32)
+    model.fit(x, y, epochs=5, batch_size=128, verbose=2)
+    model.evaluate(x_test, y_test, batch_size=128)
+    print('evaluate')
 
     predictions = model.predict(x_test)
-    score(predictions, y_test, y_labels,score_file)
+    score(predictions, y_test, y_labels, score_file)
 
     return model
 
