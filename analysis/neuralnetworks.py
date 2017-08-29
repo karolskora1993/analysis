@@ -15,7 +15,7 @@ from lasagne.updates import nesterov_momentum
 from nolearn.lasagne import NeuralNet
 
 from keras.models import Sequential
-from keras.layers import Dense, Activation, Dropout
+from keras.layers import Dense, Activation, Dropout, Conv1D
 
 import sys
 sys.setrecursionlimit(10000)
@@ -125,19 +125,21 @@ def keras_model(x, y, x_test, y_test, y_labels, score_file):
     model = Sequential()
     model.add(Dense(50, input_dim=x.shape[1]))
     model.add(Dropout(0.5))
-    model.add(Dense(50, activation='relu'))
+    model.add(Dense(100, activation='relu'))
     model.add(Dropout(0.5))
-    model.add(Dense(50, activation='relu'))
+    model.add(Dense(100, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(100, activation='relu'))
     model.add(Dropout(0.5))
     model.add(Dense(50, activation='relu'))
     model.add(Dropout(0.5))
     model.add(Dense(len(y_labels), activation='linear'))
 
     model.compile(optimizer='adam',
-                  loss='mse')
+                  loss='mean_squared_error')
 
-    model.fit(x, y, epochs=5, batch_size=128, verbose=2)
-    model.evaluate(x_test, y_test, batch_size=128)
+    model.fit(x, y, epochs=400, batch_size=32, verbose=2)
+    model.evaluate(x_test, y_test, batch_size=32)
     print('evaluate')
 
     predictions = model.predict(x_test)
