@@ -1,6 +1,8 @@
 import pandas as pd
 import os
+from sklearn import linear_model
 from sklearn import tree
+import numpy as np
 from numpy import nan
 import collections
 
@@ -28,7 +30,7 @@ def find_best(models):
         if best_score is None or best_score < model['score']:
             best_score = model['score']
             best_model = model
-    return best_model, best_score
+    return best_model
 
 
 def load_block_vars():
@@ -49,7 +51,7 @@ def most_common(delays):
 
 def main():
     blocks_vars = load_block_vars()
-    with open('delays.txt', 'w') as f:
+    with open('delays_dt_v3.txt', 'w') as f:
         for block_name in names:
             print(block_name)
             data = load_data(block_name)
@@ -59,25 +61,29 @@ def main():
             vars_in += vars_control
             vars_out = [x for x in vars['out'] if x is not nan]
             for var_out in vars_out:
-                y = ((data[var_out])[MAX_DELAY:]).as_matrix()
+                y = ((data[var_out])[MAX_DELAY:-1]).as_matrix()
                 delays = []
                 for var_in in vars_in:
                     if var_in is not None and var_in is not nan:
                         models = []
                         x = (data[var_in]).as_matrix()
                         for delay in range(0, MAX_DELAY + 1):
-                            x_train = (x[MAX_DELAY - delay:-delay]).reshape(-1, 1)
-                            model = tree.DecisionTreeRegressor()
+                            x_train = (x[MAX_DELAY - delay:-delay - 1]).reshape(-1, 1)
+                            model = tree.DecisionTreeRegressor(max_depth=5)
                             model.fit(x_train, y)
-                            models.append({'delay': delay, 'score': model.score(x_train, y)})
+                            score = model.score(x_train, y)
+                            line = 'var_out: {0}  var_in: {1}  delay: {2}  score:{3} \n'.format(var_out, var_in, delay, score)
+                            print(line)
+                            f.write(line)
+                            models.append({'delay': delay, 'score': score})
                         best_model = find_best(models)
-                        line = 'var_out: {0}  var_in: {1}  best delay: {2}  score:{3}'.format(var_out, var_in,
+                        line = 'var_out: {0}  var_in: {1}  best delay: {2}  score:{3} \n'.format(var_out, var_in,
                                                                                              best_model['delay'],
                                                                                              best_model['score'])
                         print(line)
-                        f.write(line)
+                        f.writelines(line)
                         delays.append(best_model['delay'])
-                        line = 'var_out: {0} delay:{1}'.format(var_out, most_common(delays))
+                        line = 'var_out: {0} delay:{1} \n'.format(var_out, most_common(delays))
                 print(line)
                 f.write(line)
 
