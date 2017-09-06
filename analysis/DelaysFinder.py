@@ -6,7 +6,7 @@ import collections
 HOME_PATH = str(os.path.expanduser('~') + '/')
 VARS_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione.xlsx'
 DATA_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
-SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/'
+SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/delays/'
 BLOCK_NAMES = [
     'blok I',
     'blok II',
@@ -15,13 +15,13 @@ BLOCK_NAMES = [
 ]
 
 COLUMN_NAMES = ['in', 'control', 'out']
-SAVE_COLUMN_NAMES = ['var_out', 'var_in', 'conf_interval', 'close_delays', 'delay']
-MAX_DELAY = 120
+SAVE_COLUMN_NAMES = ['var_out', 'conf_interval', 'close_delays', 'delay']
+MAX_DELAY = 80
 
 
 def find_best(models):
     sorted_models = sorted(models, key=lambda x: x['score'])
-    return sorted_models[-1], '{0}, {1}'.format(sorted_models[-2], sorted_models[-3])
+    return sorted_models[-1], '{0}, {1}'.format(sorted_models[-2]['delay'], sorted_models[-3]['delay'])
 
 
 def load_block_vars():
@@ -61,20 +61,18 @@ def find_delays(block_name, v):
     df = pd.DataFrame(columns=SAVE_COLUMN_NAMES)
     for var_out in vars_out:
         y = data[var_out][MAX_DELAY:-1].as_matrix()
-        for var_in in vars_in:
-            models = []
-            x = (data[var_in]).as_matrix()
-            for delay in range(0, MAX_DELAY + 1):
+        models = []
+        for delay in range(0, MAX_DELAY + 1):
+            model_score = 0
+            for var_in in vars_in:
+                x = (data[var_in]).as_matrix()
                 model = create_model(x, y, delay)
-                score = get_score(model, delay, x, y)
-                models.append({'delay': delay, 'score': score})
-            best_model, close_delays = find_best(models)
-            conf_interval = get_conf_interval(models, best_model)
-            print('var_out: {0}  var_in: {1}  best delay: {2}  score:{3}  close_delays: {4}  conf_interval: {5}\n'.format(var_out, var_in,
-                                                                                    best_model['delay'],
-                                                                                    best_model['score'], close_delays, conf_interval))
-            data_to_append = [[var_out, var_in, conf_interval, close_delays, [best_model['delay']]]]
-            df = df.append(pd.DataFrame(data_to_append, columns=SAVE_COLUMN_NAMES))
+                model_score += get_score(model, delay, x, y)
+            models.append({'delay': delay, 'score': model_score})
+        best_model, close_delays = find_best(models)
+        conf_interval = get_conf_interval(models, best_model)
+        data_to_append = [[var_out, conf_interval, close_delays, best_model['delay']]]
+        df = df.append(pd.DataFrame(data_to_append, columns=SAVE_COLUMN_NAMES))
 
     return df
 
