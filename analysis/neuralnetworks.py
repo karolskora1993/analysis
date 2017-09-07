@@ -12,8 +12,8 @@ import sys
 sys.setrecursionlimit(10000)
 
 COL_NAMES = ['in', 'control', 'out']
-LAST_TRAIN_IDX = 200.000
-LAST_VALIDATE_IDX = 250.000
+LAST_TRAIN_IDX = 205.038
+LAST_VALIDATE_IDX = 257.133
 
 
 class ModelTester(ABC):
@@ -45,6 +45,9 @@ class Model(ABC):
     def test_model(self, x_test, y_test):
         self._model_tester.test(self._model, x_test, y_test)
 
+    def get_model(self):
+        return self._model
+
     @abstractmethod
     def create_model(self, input_size, output_size, network_shape, optimizer='adam', loss='mean_squared_error'):
         pass
@@ -56,6 +59,7 @@ class Model(ABC):
     @abstractmethod
     def predict(self, x):
         pass
+
 
 
 class KerasMLPModel(Model):
@@ -133,17 +137,32 @@ def save_model(model, file_name):
     pickle.dump(model, open(file_name, 'wb'))
 
 def model_single_output(input_data, output_data):
-    model = keras_model(x_train, y_train)
+    model =
 
 
 
 def model_block(data, var_names):
     vars_in = var_names['in'].append(var_names['control']).dropna().tolist()
     vars_out = var_names['out'].dropna().tolist()
-    input_data = data[vars_in]
+    network_shape = (10, 0)
+    if len(sys.argv) > 1:
+        cmd_line_args = []
+        for i, arg in sys.argv.enumerate():
+            if i > 0:
+                cmd_line_args.append(int(arg))
+        network_shape = tuple(cmd_line_args)
+    block_models = []
+    input_data = data[vars_in].as_matrix()
     for var_out in vars_out:
-        output_data = data[var_out]
-        model = model_single_output(input_data, output_data)
+        output_data = data[var_out].as_matrix()
+        model = KerasMLPModel(input_data, output_data, SimpleTester())
+        model.create_model(input_data.shape[1], output_data, network_shape)
+        model.train_model()
+        model.test_model()
+        block_models.append({'output': var_out, 'model':model.get_model()})
+
+    return block_models
+
 
 
 def main():
@@ -152,14 +171,8 @@ def main():
         print(block_name)
         data = load_data(block_name)
         var_names = block_vars[block_name][COL_NAMES]
-
-
-        #keras model
-        name = 'keras_model_test_{0}'.format(block_name)
-        print('keras model {0}'.format(name))
-        score_file = blocks.MODEL_SAVE_PATH + '/scores/' + name + '.txt'
-        save_file = blocks.MODEL_SAVE_PATH + name + '.p'
-        save_model(model, save_file)
+        #keras MLP model
+        block_models = model_block(data, var_names, )
 
 
 if __name__ == '__main__':
