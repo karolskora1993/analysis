@@ -136,14 +136,7 @@ def load_block_vars():
 def save_model(model, file_name):
     pickle.dump(model, open(file_name, 'wb'))
 
-def model_single_output(input_data, output_data):
-    model =
-
-
-
-def model_block(data, var_names):
-    vars_in = var_names['in'].append(var_names['control']).dropna().tolist()
-    vars_out = var_names['out'].dropna().tolist()
+def get_network_shape():
     network_shape = (10, 0)
     if len(sys.argv) > 1:
         cmd_line_args = []
@@ -151,10 +144,21 @@ def model_block(data, var_names):
             if i > 0:
                 cmd_line_args.append(int(arg))
         network_shape = tuple(cmd_line_args)
+    return network_shape
+
+
+
+
+
+def model_block(data, var_names):
+    vars_in = var_names['in'].append(var_names['control']).dropna().tolist()
+    vars_out = var_names['out'].dropna().tolist()
+
     block_models = []
-    input_data = data[vars_in].as_matrix()
+    input_data = data[vars_in].as_matrix().transpose()
     for var_out in vars_out:
-        output_data = data[var_out].as_matrix()
+        output_data = data[var_out].as_matrix().transpose()
+        network_shape = get_network_shape()
         model = KerasMLPModel(input_data, output_data, SimpleTester())
         model.create_model(input_data.shape[1], output_data, network_shape)
         model.train_model()
