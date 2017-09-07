@@ -17,20 +17,22 @@ LAST_VALIDATE_IDX = 250.000
 
 
 class ModelTester(ABC):
-    @staticmethod
     @abstractmethod
-    def test_model(model, x_test, y_test):
+    def test_model(self, model, x_test, y_test):
         pass
 
 
+class SimpleTester(ModelTester):
+    def test_model(self, model, x_test, y_test):
+        predictions = model.predict(x_test)
+        return metrics.r2_score(y_test, predictions)
+
+
 class Model(ABC):
-    def __init__(self, input_data, output_data, model_tester, network_shape, optimizer='adam', loss='mean_squared_error'):
+    def __init__(self, input_data, output_data, model_tester):
         self._input_data = input_data
         self._output_data = output_data
         self._model_tester = model_tester
-        self._network_shape = network_shape
-        self._optimizer = optimizer
-        self._loss = loss
         self._model = None
         self.validate_data()
 
@@ -40,33 +42,45 @@ class Model(ABC):
         if not np.all(np.isfinite(self.input_data)) or not np.all(np.isfinite(self._output_data)):
             raise ValueError('Data contains infinite values')
 
-    @abstractmethod
-    def create_model(self, input_size, output_size):
-        pass
-
-    @abstractmethod
-    def train_model(self, x_train, y_train, validation_data=None):
-        pass
-
-    @abstractmethod
     def test_model(self, x_test, y_test):
+        self._model_tester.test(self._model, x_test, y_test)
+
+    @abstractmethod
+    def create_model(self, input_size, output_size, network_shape, optimizer='adam', loss='mean_squared_error'):
+        pass
+
+    @abstractmethod
+    def train_model(self, x_train, y_train, validation_data=None, epochs=500):
+        pass
+
+    @abstractmethod
+    def predict(self, x):
         pass
 
 
 class KerasMLPModel(Model):
-    def create_model(self, input_size, output_size):
+    def create_model(self, input_size, output_size, network_shape=(10,), optimizer='adam', loss='mean_squared_error'):
         self._model = Sequential()
-        self._model.add(Dense(50, input_dim=input_size))
-        self._model.add(Dropout(0.5))
-        self._model.add(Dense(50, activation='relu'))
-        self._model.add(Dense(output_size, activation='linear'))
-        self._model.compile(optimizer=self._optimizer, loss=self._loss)
 
-    def train_model(self, x_train, y_train, validation_data):
+        network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else (10,)
+
+        self._model.add(Dense(network_shape[0], input_dim=input_size))
+        self._model.add(Dropout(0.5))
+
+        for layer in network_shape:
+            self._model.add(Dense(layer, activation='relu'))
+            self._model.add(Dropout(0.5))
+
+        self._model.add(Dense(output_size, activation='linear'))
+        self._model.compile(optimizer=optimizer, loss=loss)
+
+    def train_model(self, x_train, y_train, validation_data, epochs=500):
         scaler = StandardScaler().fit(x_train)
         x_train = scaler.transform(x_train)
-        self._model.fit(x_train, y_train, epochs=400, batch_size=32, verbose=2, validation_data=validation_data)
-        print('evaluate')
+        self._model.fit(x_train, y_train, epochs=epochs, batch_size=32, verbose=2, validation_data=validation_data)
+
+    def predict(self, x):
+        return self._model.predict(x)
 
 
 def load_data(block_name):
