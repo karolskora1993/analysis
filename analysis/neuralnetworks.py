@@ -1,19 +1,34 @@
 import pandas as pd
-from analysis import blocks
 import numpy as np
 import pickle
 from sklearn.preprocessing import StandardScaler
-from sklearn.neural_network import MLPRegressor
 import sklearn.metrics as metrics
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from abc import ABC, abstractmethod
 import sys
+import os
+
 sys.setrecursionlimit(10000)
 
 COL_NAMES = ['in', 'control', 'out']
 LAST_TRAIN_IDX = 205.038
 LAST_VALIDATE_IDX = 257.133
+
+
+HOME_PATH = str(os.path.expanduser('~')+'/')
+
+LOAD_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
+MODEL_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/'
+
+BLOCK_VARS_PATH_XLSX = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione.xlsx'
+
+BLOCK_NAMES = [
+    'blok I',
+    # 'blok II',
+    # 'blok III',
+    # 'blok IV'
+]
 
 
 class ModelTester(ABC):
@@ -43,7 +58,7 @@ class Model(ABC):
             raise ValueError('Data contains infinite values')
 
     def test_model(self, x_test, y_test):
-        self._model_tester.test(self._model, x_test, y_test)
+        return self._model_tester.test(self._model, x_test, y_test)
 
     def get_model(self):
         return self._model
@@ -77,6 +92,7 @@ class KerasMLPModel(Model):
 
         self._model.add(Dense(output_size, activation='linear'))
         self._model.compile(optimizer=optimizer, loss=loss)
+        print('Model created')
 
     def train_model(self, x_train, y_train, validation_data, epochs=500):
         scaler = StandardScaler().fit(x_train)
@@ -88,53 +104,21 @@ class KerasMLPModel(Model):
 
 
 def load_data(block_name):
-    df = pd.read_csv(blocks.LOAD_PATH + block_name + '.csv', index_col=0)
+    df = pd.read_csv(LOAD_PATH + block_name + '.csv', index_col=0)
     print('data loaded')
     return df
-
-def get_score(predictions, y_test, y_labels, score_file):
-    columns = predictions.shape[1]
-    with open(score_file, 'w') as f:
-        for i in range(0, columns):
-            r2 = metrics.r2_score(y_test[:, i], predictions[:, i])
-            mse = metrics.mean_squared_error(y_test[:, i], predictions[:, i])
-            mae = metrics.mean_absolute_error(y_test[:, i], predictions[:, i])
-            ews = metrics.explained_variance_score(y_test[:, i], predictions[:, i])
-            print_line = 'zmienna {0}- r^2: {1}  mse: {2} mae: {3} ews: {4} \n'.format(y_labels[i], r2, mse, mae, ews)
-            print(print_line)
-            f.write(print_line)
-
-
-def sklearn_model(x, y, x_test, y_test, y_labels, score_file):
-    mlp = MLPRegressor(hidden_layer_sizes=(100, 100, 100, 100, 100, 100), max_iter=100000)
-    print('Any NaN: {0}'.format(np.any(np.isnan(x))))
-    print('All finite: {0}'.format(np.all(np.isfinite(x))))
-    x = np.transpose(np.matrix(x))
-    y = np.transpose(np.matrix(y))
-    x_test = np.transpose(np.matrix(x_test))
-    y_test = np.transpose(np.matrix(y_test))
-    scaler = StandardScaler().fit(x)
-    x = scaler.transform(x)
-    x_test = scaler.transform(x_test)
-    print('scale')
-    mlp.fit(x, y)
-    print('fit')
-    predictions = mlp.predict(x_test)
-    print('predict')
-    get_score(predictions, y_test, y_labels, score_file)
-    return mlp
-
 
 
 
 def load_block_vars():
-    df = pd.read_excel(blocks.BLOCK_VARS_PATH_XLSX, sheetname=None)
+    df = pd.read_excel(BLOCK_VARS_PATH_XLSX, sheetname=None)
     print('blocks vars loaded')
     return df
 
 
-def save_model(model, file_name):
-    pickle.dump(model, open(file_name, 'wb'))
+def save_model(model, save_path):
+    pickle.dump(model, open(save_path, 'wb'))
+    print('Model saved')
 
 def get_network_shape():
     network_shape = (10, 0)
@@ -144,26 +128,29 @@ def get_network_shape():
             if i > 0:
                 cmd_line_args.append(int(arg))
         network_shape = tuple(cmd_line_args)
+    print('Network shape: {0}'.format(network_shape))
     return network_shape
-
-
 
 
 
 def model_block(data, var_names):
     vars_in = var_names['in'].append(var_names['control']).dropna().tolist()
     vars_out = var_names['out'].dropna().tolist()
-
     block_models = []
+    network_shape = get_network_shape()
     input_data = data[vars_in].as_matrix().transpose()
     for var_out in vars_out:
+        print('var_out:\t{0}'.format(var_out))
         output_data = data[var_out].as_matrix().transpose()
-        network_shape = get_network_shape()
         model = KerasMLPModel(input_data, output_data, SimpleTester())
         model.create_model(input_data.shape[1], output_data, network_shape)
-        model.train_model()
-        model.test_model()
-        block_models.append({'output': var_out, 'model':model.get_model()})
+        model.train_model(input_data[:LAST_TRAIN_IDX], output_data[LAST_TRAIN_IDX],
+                          (input_data[LAST_TRAIN_IDX: LAST_VALIDATE_IDX], output_data[LAST_TRAIN_IDX: LAST_VALIDATE_IDX]))
+        r2 = model.test_model(input_data[LAST_VALIDATE_IDX:], output_data[LAST_VALIDATE_IDX:])
+        block_models.append({'output': var_out, 'model': model.get_model()})
+        print('r^2:\t {0}'.format(r2))
+        save_path = MODEL_SAVE_PATH + var_out + '.p'
+        save_model(model, save_path)
 
     return block_models
 
@@ -171,7 +158,7 @@ def model_block(data, var_names):
 
 def main():
     block_vars = load_block_vars()
-    for block_name in blocks.names:
+    for block_name in BLOCK_NAMES:
         print(block_name)
         data = load_data(block_name)
         var_names = block_vars[block_name][COL_NAMES]
