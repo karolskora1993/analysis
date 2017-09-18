@@ -14,18 +14,21 @@ sys.setrecursionlimit(10000)
 COL_NAMES = ['in', 'control', 'out', 'delay']
 LAST_TRAIN_IDX = 205038
 LAST_VALIDATE_IDX = 257133
-BATCH_SIZE = 128
+BATCH_SIZE = 32
+DROPOUT = 0.2
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
 MODEL_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/'
 SCORE_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/stats/'
 BLOCK_VARS_PATH_XLSX = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v3.xlsx'
+SAVE_FILE_NAME = 'score_{network_shape}_{epochs}epochs_standarizedY_batch_32_kernel_normal.txt'
 BLOCK_NAMES = [
     'blok I',
     # 'blok II',
     # 'blok III',
     # 'blok IV'
 ]
+
 
 
 class ModelTester(ABC):
@@ -39,7 +42,7 @@ class DataStandarizer(ABC):
         self._input_scaler = StandardScaler()
         self._input_scaler.fit(x_train)
         self._output_scaler = StandardScaler()
-        self._output_scaler.fit(y_train.reshape(-1,1))
+        self._output_scaler.fit(y_train.reshape(-1, 1))
 
     @abstractmethod
     def standarize_data(self, input_data, output_data):
@@ -63,7 +66,7 @@ class SimpleStandarizer(DataStandarizer):
 class SimpleTester(ModelTester):
     def test_model(self, model, x_test, y_test):
         predictions = model.predict(x_test)
-        return metrics.r2_score(y_test, predictions)
+        return metrics.r2_score(y_test, predictions.astype(np.float64))
 
 
 class Model(ABC):
@@ -111,7 +114,7 @@ class Model(ABC):
         pass
 
     @abstractmethod
-    def train_model(self, epochs=500, standarize=True):
+    def train_model(self, epochs=500):
         pass
 
     @abstractmethod
@@ -131,18 +134,18 @@ class KerasMLPModel(Model):
             for i, layer in enumerate(network_shape):
                 if layer > 0:
                     if i == 0:
-                        self._model.add(Dense(layer, input_dim=input_size, activation='relu'))
+                        self._model.add(Dense(layer, input_dim=input_size, activation='relu', kernel_initializer='normal'))
                     else:
-                        self._model.add(Dense(layer, activation='relu'))
-                    self._model.add(Dropout(0.2))
+                        self._model.add(Dense(layer, activation='relu', kernel_initializer='normal'))
+                    self._model.add(Dropout(DROPOUT))
         else:
             print('No network shape provided')
             print('Default network shape: (5,)')
-            self._model.add(Dense(5, input_dim=input_size, activation='linear'))
+            self._model.add(Dense(5, input_dim=input_size, activation='relu'))
 
         self._model.add(Dense(output_size))
 
-        self._model.compile(optimizer=optimizer, loss=loss, metrics=[coeff_determination])
+        self._model.compile(optimizer=optimizer, loss=loss)
         print('Model created')
 
     def train_model(self, epochs=500):
@@ -163,7 +166,7 @@ class KerasMLPModel(Model):
         self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2, validation_data=(x_validate, y_validate))
 
     def predict(self, x):
-        return self._model.predict(x, batch_size= BATCH_SIZE)
+        return self._model.predict(x, batch_size=BATCH_SIZE)
 
 
 class DataLoader(object):
@@ -185,12 +188,6 @@ class DataLoader(object):
         print('Model saved')
 
 
-def coeff_determination(y_true, y_pred):
-    SS_res = K.sum(K.square(y_true - y_pred))
-    SS_tot = K.sum(K.square(y_true - K.mean(y_true)))
-    return (1 - SS_res) / (SS_tot + K.epsilon())
-
-
 def get_network_shape():
     network_shape = None
     if len(sys.argv) > 1:
@@ -199,7 +196,7 @@ def get_network_shape():
             if i > 0:
                 cmd_line_args.append(int(arg))
         network_shape = tuple(cmd_line_args)
-    return (network_shape[:-1], network_shape[-1]) if network_shape else (None, 500)
+    return (network_shape[:-1], network_shape[-1]) if network_shape else (None, 10)
 
 
 def shift_data(input_data, output_data, delay):
@@ -212,26 +209,30 @@ def model_block(data, var_names):
     vars_in = var_names['in'].append(var_names['control']).dropna().tolist()
     vars_out = var_names['out'].dropna().tolist()
     delays = var_names['delay']
+
     block_models = []
     network_shape, epochs = get_network_shape()
     input_data = data[vars_in].as_matrix()
+
     for i, var_out in enumerate(vars_out):
         print('var_out:\t{0}'.format(var_out))
         output_data = data[var_out].as_matrix()
         delay = int(delays[i]) if delays[i] >= 1 else 0
         if delay > 0:
             x, y = shift_data(input_data, output_data, delay)
+        else:
+            x, y = input_data, output_data
+
         model = KerasMLPModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
         model.create_model(input_data.shape[1], 1, network_shape)
         model.train_model(epochs)
+
         r2 = model.test_model()
         block_models.append({'output': var_out, 'model': model.get_model()})
-        print_line = 'zmienna:\t{0} r^2_test:\t {1} \t r^2_train:\t{2} \n'.format(var_out, r2[0], r2[1])
-        print(print_line)
         save_path = MODEL_SAVE_PATH + var_out + '.p'
         DataLoader.save_model(model, save_path)
-        with open(SCORE_SAVE_PATH + 'score_{network_shape}_{epochs}epochs_standarizedY.txt'.format(var_out=var_out, network_shape=network_shape, epochs=epochs), 'a') as file:
-            file.write(print_line)
+        with open(SCORE_SAVE_PATH + SAVE_FILE_NAME.format(var_out=var_out, network_shape=network_shape, epochs=epochs), 'a') as file:
+            file.write('zmienna:\t{0} r^2_test:\t {1} \t r^2_train:\t{2} \n'.format(var_out, r2[0], r2[1]))
 
     return block_models
 
