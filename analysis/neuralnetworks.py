@@ -3,8 +3,7 @@ import numpy as np
 import pickle
 import sklearn.metrics as metrics
 from keras.models import Sequential
-from keras.layers import Dense, Dropout
-from keras import backend as K
+from keras.layers import Dense, SimpleRNN, Dropout
 from abc import ABC, abstractmethod
 from sklearn.preprocessing import StandardScaler
 import sys
@@ -14,14 +13,14 @@ sys.setrecursionlimit(10000)
 COL_NAMES = ['in', 'control', 'out', 'delay']
 LAST_TRAIN_IDX = 205038
 LAST_VALIDATE_IDX = 257133
-BATCH_SIZE = 32
-DROPOUT = 0.2
+BATCH_SIZE = 500
+DROPOUT = 0.4
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
 MODEL_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/'
 SCORE_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/stats/'
 BLOCK_VARS_PATH_XLSX = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v3.xlsx'
-SAVE_FILE_NAME = 'score_{network_shape}_{epochs}epochs_standarizedY_batch_32_kernel_normal.txt'
+SAVE_FILE_NAME = 'score_{network_shape}_{epochs}epochs_v2.txt'
 BLOCK_NAMES = [
     'blok I',
     # 'blok II',
@@ -71,8 +70,6 @@ class SimpleTester(ModelTester):
 
 class Model(ABC):
     def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None):
-        self._input_data = input_data
-        self._output_data = output_data
         self._model_tester = model_tester
         self._model = None
         self._last_train_idx = last_train_index
@@ -80,41 +77,59 @@ class Model(ABC):
         self._input_scaler = None
         self._output_scaler = None
         self._model_standarizer = model_standarizer
-        self.validate_data()
+        self._validate_data(input_data, output_data)
+        self._divide_data(input_data, output_data)
+        if self._model_standarizer:
+            self.standarize_data()
 
-    def validate_data(self):
-        if np.any(np.isnan(self._input_data)) or np.any(np.isnan(self._output_data)):
+    def standarize_data(self):
+        self._model_standarizer.fit(self._x_train, self._y_train)
+        input_data, output_data = self._model_standarizer.standarize_data([self._x_train, self._x_validate, self._x_test],
+                                                                          [self._y_train, self._y_validate, self._y_test])
+        self.x_train = input_data[0]
+        self.y_train = output_data[0]
+        self.x_validate = input_data[1]
+        self.y_validate = output_data[1]
+        self.x_test = input_data[2]
+        self.y_test = output_data[2]
+
+
+    def _divide_data(self, input_data, output_data):
+        self._x_test = input_data[self._last_validate_idx:]
+        self._x_train = input_data[:self._last_train_idx]
+        self._y_test = output_data[self._last_validate_idx:]
+        self._y_train = output_data[:self._last_train_idx]
+        self._x_validate = input_data[self._last_train_idx: self._last_validate_idx]
+        self._y_validate = output_data[self._last_train_idx: self._last_validate_idx]
+
+
+    def _validate_data(self, input_data, output_data):
+        if np.any(np.isnan(input_data)) or np.any(np.isnan(output_data)):
             raise ValueError('Data contains NaN values')
-        if not np.all(np.isfinite(self._input_data)) or not np.all(np.isfinite(self._output_data)):
+        if not np.all(np.isfinite(input_data)) or not np.all(np.isfinite(output_data)):
             raise ValueError('Data contains infinite values')
 
     def test_model(self):
-        x_test = self._input_data[self._last_validate_idx:]
-        x_train = self._input_data[:self._last_train_idx]
-        y_test = self._output_data[self._last_validate_idx:]
-        y_train = self._output_data[:self._last_train_idx]
-
-        if self._model_standarizer:
-            input_data, output_data = self._model_standarizer.standarize_data([x_train, x_test], [y_train, y_test])
-            x_train = input_data[0]
-            y_train = output_data[0]
-            x_test = input_data[1]
-            y_test = output_data[1]
-
-        r2_test = self._model_tester.test_model(self._model, x_test, y_test)
-        r2_train = self._model_tester.test_model(self._model, x_train, y_train)
+        r2_test = self._model_tester.test_model(self._model, self._x_test, self._y_test)
+        r2_train = self._model_tester.test_model(self._model, self._x_train, self._y_train)
 
         return r2_test, r2_train
 
     def get_model(self):
         return self._model
 
+    def train_model(self, epochs=500):
+        print('Train models, number of epochs: {0}'.format(epochs))
+
+
+        self._fit(self._x_train, self._y_train, epochs=epochs, batch_size=BATCH_SIZE, validation_data=(self._x_validate, self._y_validate))
+
     @abstractmethod
     def create_model(self, input_size, output_size, network_shape, optimizer='adam', loss='mean_squared_error'):
         pass
 
     @abstractmethod
-    def train_model(self, epochs=500):
+    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
         pass
 
     @abstractmethod
@@ -148,22 +163,44 @@ class KerasMLPModel(Model):
         self._model.compile(optimizer=optimizer, loss=loss)
         print('Model created')
 
-    def train_model(self, epochs=500):
-        print('Train models, number of epochs: {0}'.format(epochs))
-        x_train = self._input_data[:self._last_train_idx]
-        y_train = self._output_data[:self._last_train_idx]
-        x_validate = self._input_data[self._last_train_idx: self._last_validate_idx]
-        y_validate = self._output_data[self._last_train_idx: self._last_validate_idx]
+    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
+        self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2,
+                        validation_data=validation_data)
 
-        if self._model_standarizer:
-            self._model_standarizer.fit(x_train, y_train)
-            input_data, output_data = self._model_standarizer.standarize_data([x_train, x_validate], [y_train, y_validate])
-            x_train = input_data[0]
-            y_train = output_data[0]
-            x_validate = input_data[1]
-            y_validate = output_data[1]
+    def predict(self, x):
+        return self._model.predict(x, batch_size=BATCH_SIZE)
 
-        self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2, validation_data=(x_validate, y_validate))
+
+
+class KerasSimpleRNNModel(Model):
+
+    def create_model(self, input_size, output_size, network_shape=None, optimizer='adam', loss='mean_squared_error'):
+        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2}'.format(input_size, output_size, network_shape))
+        self._model = Sequential()
+
+        network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
+
+        if network_shape and network_shape[0] > 0:
+            for i, layer in enumerate(network_shape):
+                if layer > 0:
+                    if i == 0:
+                        self._model.add(SimpleRNN(layer, input_shape=(None, input_size), activation='relu', kernel_initializer='normal'))
+                    else:
+                        self._model.add(SimpleRNN(layer, activation='relu', kernel_initializer='normal'))
+                    self._model.add(Dropout(DROPOUT))
+        else:
+            print('No network shape provided')
+            print('Default network shape: (5,)')
+            self._model.add(SimpleRNN(5, input_shape=(None, input_size), activation='relu'))
+
+        self._model.add(Dense(output_size, kernel_initializer='normal'))
+
+        self._model.compile(optimizer=optimizer, loss=loss)
+        print('Model created')
+
+    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
+        self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2,
+                        validation_data=validation_data)
 
     def predict(self, x):
         return self._model.predict(x, batch_size=BATCH_SIZE)
@@ -223,7 +260,7 @@ def model_block(data, var_names):
         else:
             x, y = input_data, output_data
 
-        model = KerasMLPModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
+        model = KerasSimpleRNNModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
         model.create_model(input_data.shape[1], 1, network_shape)
         model.train_model(epochs)
 
