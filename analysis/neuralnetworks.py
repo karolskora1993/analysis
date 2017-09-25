@@ -164,6 +164,7 @@ class RecurrentModel(ABC, Model):
         Model.__init__(input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer)
         self._steps_back = steps_back
         self._transform_data()
+        self._reshape_data()
 
     def _transform_data(self):
         self._x_train = self._series_to_supervised(self._x_train, self._steps_back, self._steps_back)
@@ -172,6 +173,14 @@ class RecurrentModel(ABC, Model):
         self._y_validate = self._series_to_supervised(self._y_validate, self._steps_back, self._steps_back)
         self._x_test = self._series_to_supervised(self._x_test, self._steps_back, self._steps_back)
         self._y_test = self._series_to_supervised(self._y_test, self._steps_back, self._steps_back)
+
+    def _reshape_data(self):
+        self._x_train = self._x_train.reshape((self._x_train.shape[0], self._steps_back, self._x_train.shape[1]))
+        self._y_train = self._y_train.reshape((self._y_train.shape[0], self._steps_back, self._y_train.shape[1]))
+        self._x_validate = self._x_validate.reshape((self._x_validate.shape[0], self._steps_back, self._x_validate.shape[1]))
+        self._y_validate = self._y_validate.reshape((self._y_validate.shape[0], self._steps_back, self._y_validate.shape[1]))
+        self._x_test = self._x_test.reshape((self._x_test.shape[0], self._steps_back, self._x_test.shape[1]))
+        self._y_test = self._y_test.reshape((self._y_test.shape[0], self._steps_back, self._y_test.shape[1]))
 
 
 
@@ -240,7 +249,6 @@ class KerasSimpleRNNModel(RecurrentModel):
         print('Model created')
 
     def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
-        # x_train = x_train.reshape(x_train.shape + (1,))
         self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2)
 
     def predict(self, x):
