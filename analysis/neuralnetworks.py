@@ -17,13 +17,13 @@ LAST_VALIDATE_IDX = 257133
 BATCH_SIZE = 500
 DROPOUT = 0.4
 TIMESTEPS = None
-OPTIMIZER = adam(lr=0.0001)
+OPTIMIZER = adam(lr=0.001)
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
 MODEL_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/'
 SCORE_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/stats/'
 BLOCK_VARS_PATH_XLSX = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v3.xlsx'
-SAVE_FILE_NAME = 'score_{network_shape}_{epochs}epochs_v2_lr_mod.txt'
+SAVE_FILE_NAME = 'score_{network_shape}_{epochs}epochs_rnn.txt'
 BLOCK_NAMES = [
     'blok I',
     # 'blok II',
@@ -123,12 +123,10 @@ class Model(ABC):
 
     def train_model(self, epochs=500):
         print('Train models, number of epochs: {0}'.format(epochs))
-
-
         self._fit(self._x_train, self._y_train, epochs=epochs, batch_size=BATCH_SIZE, validation_data=(self._x_validate, self._y_validate))
 
     @abstractmethod
-    def create_model(self, input_size, output_size, network_shape, optimizer='adam', loss='mean_squared_error'):
+    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error'):
         pass
 
     @abstractmethod
@@ -140,9 +138,15 @@ class Model(ABC):
         pass
 
 
-class RecurrentModel(ABC, Model):
+class RecurrentModel(Model):
 
-    def _series_to_supervised(data, n_in=1, n_out=1):
+    def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None, steps_back=1):
+        super().__init__(input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer)
+        self._steps_back = steps_back
+        self._transform_data()
+        self._reshape_data()
+
+    def _series_to_supervised(self, data, n_in=1, n_out=1):
         n_vars = 1 if type(data) is list else data.shape[1]
         df = pd.DataFrame(data)
         cols, names = list(), list()
@@ -157,41 +161,47 @@ class RecurrentModel(ABC, Model):
                 names += [('var%d(t+%d)' % (j + 1, i)) for j in range(n_vars)]
         agg = pd.concat(cols, axis=1)
         agg.columns = names
-        agg.dropna(inplace=True)
-        return agg
-
-    def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None, steps_back=1):
-        Model.__init__(input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer)
-        self._steps_back = steps_back
-        self._transform_data()
-        self._reshape_data()
+        # agg.dropna(inplace=True)
+        return agg.as_matrix()
 
     def _transform_data(self):
         self._x_train = self._series_to_supervised(self._x_train, self._steps_back, self._steps_back)
-        self._y_train = self._series_to_supervised(self._y_train, self._steps_back, self._steps_back)
+        # self._y_train = self._series_to_supervised(self._y_train, self._steps_back, self._steps_back)
         self._x_validate = self._series_to_supervised(self._x_validate, self._steps_back, self._steps_back)
-        self._y_validate = self._series_to_supervised(self._y_validate, self._steps_back, self._steps_back)
+        # self._y_validate = self._series_to_supervised(self._y_validate, self._steps_back, self._steps_back)
         self._x_test = self._series_to_supervised(self._x_test, self._steps_back, self._steps_back)
-        self._y_test = self._series_to_supervised(self._y_test, self._steps_back, self._steps_back)
+        # self._y_test = self._series_to_supervised(self._y_test, self._steps_back, self._steps_back)
 
     def _reshape_data(self):
         self._x_train = self._x_train.reshape((self._x_train.shape[0], self._steps_back, self._x_train.shape[1]))
-        self._y_train = self._y_train.reshape((self._y_train.shape[0], self._steps_back, self._y_train.shape[1]))
+        # self._y_train = self._y_train.reshape((self._y_train.shape[0], self._steps_back, self._y_train.shape[1]))
         self._x_validate = self._x_validate.reshape((self._x_validate.shape[0], self._steps_back, self._x_validate.shape[1]))
-        self._y_validate = self._y_validate.reshape((self._y_validate.shape[0], self._steps_back, self._y_validate.shape[1]))
+        # self._y_validate = self._y_validate.reshape((self._y_validate.shape[0], self._steps_back, self._y_validate.shape[1]))
         self._x_test = self._x_test.reshape((self._x_test.shape[0], self._steps_back, self._x_test.shape[1]))
-        self._y_test = self._y_test.reshape((self._y_test.shape[0], self._steps_back, self._y_test.shape[1]))
+        # self._y_test = self._y_test.reshape((self._y_test.shape[0], self._steps_back, self._y_test.shape[1]))
 
+    @abstractmethod
+    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error'):
+        pass
+
+    @abstractmethod
+    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
+        pass
+
+    @abstractmethod
+    def predict(self, x):
+        pass
 
 
 
 class KerasMLPModel(Model):
 
-    def create_model(self, input_size, output_size, network_shape=None, optimizer='adam', loss='mean_squared_error'):
-        print('input_size: {0} output_size: {1} network_shape: {2}'.format(input_size, output_size, network_shape))
+    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error'):
         self._model = Sequential()
-
+        input_size = self._x_train.shape[1]
+        output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
         network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
+        print('input_size: {0} output_size: {1} network_shape: {2}'.format(input_size, output_size, network_shape))
 
         if network_shape and network_shape[0] > 0:
             for i, layer in enumerate(network_shape):
@@ -221,30 +231,28 @@ class KerasMLPModel(Model):
 
 class KerasSimpleRNNModel(RecurrentModel):
 
-    def create_model(self, input_size, output_size, network_shape=None, optimizer='adam', loss='mean_squared_error'):
-        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2}'.format(input_size, output_size, network_shape))
+    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error'):
         self._model = Sequential()
-
+        input_dim = (self._x_train.shape[1], self._x_train.shape[2])
+        output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
         network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
+        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2}'.format(input_dim, output_size, network_shape))
 
         if network_shape and network_shape[0] > 0:
             for i, layer in enumerate(network_shape):
                 if layer > 0:
                     if i == 0:
-                        self._model.add(SimpleRNN(layer, input_shape =(TIMESTEPS, input_size), activation='relu', kernel_initializer='normal', return_sequences=True))
-                    if i == len(network_shape) - 1:
-                        self._model.add(SimpleRNN(layer, activation='relu', kernel_initializer='normal'))
-
+                        self._model.add(SimpleRNN(layer, input_shape=input_dim, activation='relu', kernel_initializer='normal', return_sequences=True))
                     else:
                         self._model.add(SimpleRNN(layer, activation='relu', kernel_initializer='normal', return_sequences=True))
                     self._model.add(Dropout(DROPOUT))
         else:
             print('No network shape provided')
             print('Default network shape: (5,)')
-            self._model.add(SimpleRNN(5, input_shape=(TIMESTEPS, input_size), activation='relu'))
+            self._model.add(SimpleRNN(5, input_shape=input_dim, activation='relu', return_sequences=True))
 
-        self._model.add(Dense(output_size, kernel_initializer='normal'))
-
+        self._model.add(Flatten())
+        self._model.add(Dense(output_size))
         self._model.compile(optimizer=optimizer, loss=loss)
         print('Model created')
 
@@ -309,8 +317,8 @@ def model_block(data, var_names):
         else:
             x, y = input_data, output_data
 
-        model = KerasMLPModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
-        model.create_model(input_data.shape[1], 1, network_shape,  optimizer=OPTIMIZER)
+        model = KerasSimpleRNNModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
+        model.create_model(network_shape,  optimizer=OPTIMIZER)
         model.train_model(epochs)
 
         r2 = model.test_model()
