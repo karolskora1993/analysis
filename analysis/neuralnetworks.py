@@ -4,9 +4,10 @@ import pickle
 import sklearn.metrics as metrics
 from keras.models import Sequential
 from keras.optimizers import adam
-from keras.layers import Dense, SimpleRNN, Dropout, Flatten
+from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM
 from abc import ABC, abstractmethod
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import shuffle
 import sys
 import os
 
@@ -16,14 +17,14 @@ LAST_TRAIN_IDX = 205038
 LAST_VALIDATE_IDX = 257133
 BATCH_SIZE = 500
 DROPOUT = 0.4
-TIMESTEPS = None
+TIMESTEPS = 1
 OPTIMIZER = adam(lr=0.001)
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
 MODEL_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/'
 SCORE_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/stats/'
 BLOCK_VARS_PATH_XLSX = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v3.xlsx'
-SAVE_FILE_NAME = 'score_{network_shape}_{epochs}epochs_rnn.txt'
+SAVE_FILE_NAME = 'score_{network_shape}_{epochs}epochs_shuffled.txt'
 BLOCK_NAMES = [
     'blok I',
     # 'blok II',
@@ -146,14 +147,14 @@ class RecurrentModel(Model):
         self._transform_data()
         self._reshape_data()
 
-    def _series_to_supervised(self, data, n_in=1, n_out=1):
+    def _series_to_supervised(self, data):
         n_vars = 1 if type(data) is list else data.shape[1]
         df = pd.DataFrame(data)
         cols, names = list(), list()
-        for i in range(n_in, 0, -1):
+        for i in range(self._steps_back, 0, -1):
             cols.append(df.shift(i))
             names += [('var%d(t-%d)' % (j + 1, i)) for j in range(n_vars)]
-        for i in range(0, n_out):
+        for i in range(0, self._steps_back):
             cols.append(df.shift(-i))
             if i == 0:
                 names += [('var%d(t)' % (j + 1)) for j in range(n_vars)]
@@ -161,24 +162,25 @@ class RecurrentModel(Model):
                 names += [('var%d(t+%d)' % (j + 1, i)) for j in range(n_vars)]
         agg = pd.concat(cols, axis=1)
         agg.columns = names
-        # agg.dropna(inplace=True)
-        return agg.as_matrix()
+        agg = agg[1:]
+        return agg.values
 
     def _transform_data(self):
-        self._x_train = self._series_to_supervised(self._x_train, self._steps_back, self._steps_back)
-        # self._y_train = self._series_to_supervised(self._y_train, self._steps_back, self._steps_back)
-        self._x_validate = self._series_to_supervised(self._x_validate, self._steps_back, self._steps_back)
-        # self._y_validate = self._series_to_supervised(self._y_validate, self._steps_back, self._steps_back)
-        self._x_test = self._series_to_supervised(self._x_test, self._steps_back, self._steps_back)
-        # self._y_test = self._series_to_supervised(self._y_test, self._steps_back, self._steps_back)
+        self._x_train = self._series_to_supervised(self._x_train)
+        # self._y_train = self._series_to_supervised(self._y_train)
+        self._x_validate = self._series_to_supervised(self._x_validate)
+        # self._y_validate = self._series_to_supervised(self._y_validate)
+        self._x_test = self._series_to_supervised(self._x_test)
+        # self._y_test = self._series_to_supervised(self._y_test)
 
     def _reshape_data(self):
         self._x_train = self._x_train.reshape((self._x_train.shape[0], self._steps_back, self._x_train.shape[1]))
-        # self._y_train = self._y_train.reshape((self._y_train.shape[0], self._steps_back, self._y_train.shape[1]))
         self._x_validate = self._x_validate.reshape((self._x_validate.shape[0], self._steps_back, self._x_validate.shape[1]))
-        # self._y_validate = self._y_validate.reshape((self._y_validate.shape[0], self._steps_back, self._y_validate.shape[1]))
         self._x_test = self._x_test.reshape((self._x_test.shape[0], self._steps_back, self._x_test.shape[1]))
-        # self._y_test = self._y_test.reshape((self._y_test.shape[0], self._steps_back, self._y_test.shape[1]))
+        self._y_train = self._y_train[1:]
+        self._y_validate = self._y_validate[1:]
+        self._y_test = self._y_test[1:]
+
 
     @abstractmethod
     def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error'):
@@ -252,6 +254,43 @@ class KerasSimpleRNNModel(RecurrentModel):
             self._model.add(SimpleRNN(5, input_shape=input_dim, activation='relu', return_sequences=True))
 
         self._model.add(Flatten())
+        # self._model.add(Dense(10, activation='relu', kernel_initializer='normal'))
+        self._model.add(Dense(output_size))
+        self._model.compile(optimizer=optimizer, loss=loss)
+        print('Model created')
+
+    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
+        self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2)
+
+    def predict(self, x):
+        return self._model.predict(x, batch_size=BATCH_SIZE)
+
+
+
+class KerasLSTMModel(RecurrentModel):
+
+    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error'):
+        self._model = Sequential()
+        input_dim = (self._x_train.shape[1], self._x_train.shape[2])
+        output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
+        network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
+        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2}'.format(input_dim, output_size, network_shape))
+
+        if network_shape and network_shape[0] > 0:
+            for i, layer in enumerate(network_shape):
+                if layer > 0:
+                    if i == 0:
+                        self._model.add(LSTM(layer, input_shape=input_dim, activation='relu', kernel_initializer='normal', return_sequences=True))
+                    else:
+                        self._model.add(LSTM(layer, activation='relu', kernel_initializer='normal', return_sequences=True))
+                    self._model.add(Dropout(DROPOUT))
+        else:
+            print('No network shape provided')
+            print('Default network shape: (5,)')
+            self._model.add(LSTM(5, input_shape=input_dim, activation='relu', return_sequences=True))
+
+        self._model.add(Flatten())
+        # self._model.add(Dense(10, activation='relu', kernel_initializer='normal'))
         self._model.add(Dense(output_size))
         self._model.compile(optimizer=optimizer, loss=loss)
         print('Model created')
@@ -336,6 +375,7 @@ def main():
     for block_name in BLOCK_NAMES:
         print(block_name)
         data = DataLoader.load_data(block_name)
+        data = shuffle(data)
         var_names = block_vars[block_name][COL_NAMES]
         #keras MLP model
         block_models = model_block(data, var_names)
