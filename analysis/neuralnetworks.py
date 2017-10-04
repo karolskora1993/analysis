@@ -1,10 +1,9 @@
 import pandas as pd
 import numpy as np
 import pickle
-import sklearn.metrics as metrics
 from keras.models import Sequential
 from keras.optimizers import adam
-from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM
+from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM, Conv1D, MaxPooling1D, GlobalAveragePooling1D
 from abc import ABC, abstractmethod
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
@@ -17,17 +16,16 @@ LAST_TRAIN_IDX = 205038
 LAST_VALIDATE_IDX = 257133
 BATCH_SIZE = 500
 DROPOUT = 0.4
-TIMESTEPS = 1
+TIMESTEPS = 10
 OPTIMIZER = adam(lr=0.001)
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
 MODEL_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/'
 SCORE_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/stats/'
-BLOCK_VARS_PATH_XLSX = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v3.xlsx'
-SAVE_FILE_NAME = 'score_{network_shape}_{epochs}epochs_shuffled.txt'
+BLOCK_VARS_PATH_XLSX = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
 BLOCK_NAMES = [
-    'blok I',
-    # 'blok II',
+    # 'blok I',
+    'blok II',
     # 'blok III',
     # 'blok IV'
 ]
@@ -67,9 +65,9 @@ class SimpleStandarizer(DataStandarizer):
 
 
 class SimpleTester(ModelTester):
-    def test_model(self, model, x_test, y_test):
+    def test_model(self, model, x_test, y_test, y_train):
         predictions = model.predict(x_test)
-        return metrics.r2_score(y_test, predictions.astype(np.float64))
+        return r_2score(y_test, predictions, y_train)
 
 
 class Model(ABC):
@@ -114,10 +112,11 @@ class Model(ABC):
             raise ValueError('Data contains infinite values')
 
     def test_model(self):
-        r2_test = self._model_tester.test_model(self._model, self._x_test, self._y_test)
-        r2_train = self._model_tester.test_model(self._model, self._x_train, self._y_train)
+        r2_test = self._model_tester.test_model(self._model, self._x_test, self._y_test, self._y_train)
+        r2_validate = self._model_tester.test_model(self._model, self._x_validate, self._y_validate, self._y_train)
+        r2_train = self._model_tester.test_model(self._model, self._x_train, self._y_train, self._y_train)
 
-        return r2_test, r2_train
+        return r2_test, r2_validate, r2_train
 
     def get_model(self):
         return self._model
@@ -230,6 +229,9 @@ class KerasMLPModel(Model):
     def predict(self, x):
         return self._model.predict(x, batch_size=BATCH_SIZE)
 
+    def __str__(self):
+        return "KerasMLP"
+
 
 class KerasSimpleRNNModel(RecurrentModel):
 
@@ -238,7 +240,8 @@ class KerasSimpleRNNModel(RecurrentModel):
         input_dim = (self._x_train.shape[1], self._x_train.shape[2])
         output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
         network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
-        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2}'.format(input_dim, output_size, network_shape))
+        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2} steps_back:{3}'.format(input_dim, output_size, network_shape,
+                                                                                           self._steps_back))
 
         if network_shape and network_shape[0] > 0:
             for i, layer in enumerate(network_shape):
@@ -265,6 +268,8 @@ class KerasSimpleRNNModel(RecurrentModel):
     def predict(self, x):
         return self._model.predict(x, batch_size=BATCH_SIZE)
 
+    def __str__(self):
+        return "KerasSimpleRNN"
 
 
 class KerasLSTMModel(RecurrentModel):
@@ -274,7 +279,8 @@ class KerasLSTMModel(RecurrentModel):
         input_dim = (self._x_train.shape[1], self._x_train.shape[2])
         output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
         network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
-        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2}'.format(input_dim, output_size, network_shape))
+        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2} steps_back:'.format(input_dim, output_size, network_shape),
+              self._steps_back)
 
         if network_shape and network_shape[0] > 0:
             for i, layer in enumerate(network_shape):
@@ -300,6 +306,52 @@ class KerasLSTMModel(RecurrentModel):
 
     def predict(self, x):
         return self._model.predict(x, batch_size=BATCH_SIZE)
+
+    def __str__(self):
+        return "KerasLSTM"
+
+class KerasConvModel(Model):
+
+    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error'):
+        self._model = Sequential()
+        input_size = self._x_train.shape[1]
+        output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
+        network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
+        print('KerasConvModel, input_size: {0} output_size: {1} network_shape: {2}'.format(input_size, output_size, network_shape))
+
+        if network_shape and network_shape[0] > 0:
+            for i, layer in enumerate(network_shape):
+                if layer > 0:
+                    if i == 0:
+                        pass
+                    else:
+                        pass
+                    self._model.add(Dropout(DROPOUT))
+        else:
+            print('No network shape provided')
+            print('Default network shape: Conv1D(32)-Conv1D(64)-MaxPooling1D(3)-Conv1D(128)-Conv1D(128)-'
+                  'GlobalAveragePooling1D- Droput-Dense(1)')
+
+            self._model.add(Conv1D(32, 2, activation='relu', input_shape=(None, input_size), kernel_initializer='normal'))
+            self._model.add(Conv1D(64, 2, activation='relu', kernel_initializer='normal'))
+            self._model.add(MaxPooling1D(2))
+            self._model.add(Conv1D(128, 2, activation='relu', kernel_initializer='normal'))
+            self._model.add(Conv1D(128, 2, activation='relu', kernel_initializer='normal'))
+            self._model.add(GlobalAveragePooling1D())
+            self._model.add(Dropout(0.5))
+            self._model.add(Flatten())
+        self._model.add(Dense(output_size))
+        self._model.compile(optimizer=optimizer, loss=loss)
+        print('Model created')
+
+    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
+        self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2)
+
+    def predict(self, x):
+        return self._model.predict(x, batch_size=BATCH_SIZE)
+
+    def __str__(self):
+        return "KerasConv"
 
 
 class DataLoader(object):
@@ -338,7 +390,15 @@ def shift_data(input_data, output_data, delay):
     return input_data, output_data
 
 
-def model_block(data, var_names):
+def r_2score(y_true, y_pred, y_mean):
+    mean = y_mean.mean()
+    ss_res = sum((y_true - y_pred)**2)
+    ss_tot = sum((y_true - mean)**2)
+
+    return 1 - ss_res/ss_tot
+
+
+def model_block(block_name, data, var_names):
     vars_in = var_names['in'].append(var_names['control']).dropna().tolist()
     vars_out = var_names['out'].dropna().tolist()
     delays = var_names['delay']
@@ -349,14 +409,14 @@ def model_block(data, var_names):
 
     for i, var_out in enumerate(vars_out):
         print('var_out:\t{0}'.format(var_out))
-        output_data = data[var_out].as_matrix()
+        output_data = data[var_out].values
         delay = int(delays[i]) if delays[i] >= 1 else 0
         if delay > 0:
             x, y = shift_data(input_data, output_data, delay)
         else:
             x, y = input_data, output_data
 
-        model = KerasSimpleRNNModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
+        model = KerasMLPModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
         model.create_model(network_shape,  optimizer=OPTIMIZER)
         model.train_model(epochs)
 
@@ -364,9 +424,15 @@ def model_block(data, var_names):
         block_models.append({'output': var_out, 'model': model.get_model()})
         save_path = MODEL_SAVE_PATH + var_out + '.p'
         DataLoader.save_model(model, save_path)
-        with open(SCORE_SAVE_PATH + SAVE_FILE_NAME.format(var_out=var_out, network_shape=network_shape, epochs=epochs), 'a') as file:
-            file.write('zmienna:\t{0} r^2_test:\t {1} \t r^2_train:\t{2} \n'.format(var_out, r2[0], r2[1]))
+        SAVE_FILE_NAME = '{blok}_score_{network_shape}_{epochs}epochs_{model}.txt'.format(blok=block_name,
+                                                                                          network_shape=network_shape,
+                                                                                          epochs=epochs,
+                                                                                          model=model)
 
+        with open(SCORE_SAVE_PATH + SAVE_FILE_NAME.format(var_out=var_out, network_shape=network_shape, epochs=epochs),
+                  'a') as file:
+            file.write('zmienna: {0}\t\t r^2_test: {1}\t\t r^2_validate: {2}\t\t r^2_train: {3}\n'.format(var_out, r2[0], r2[1]
+                                                                                                  , r2[2]))
     return block_models
 
 
@@ -378,7 +444,7 @@ def main():
         data = shuffle(data)
         var_names = block_vars[block_name][COL_NAMES]
         #keras MLP model
-        block_models = model_block(data, var_names)
+        block_models = model_block(block_name, data, var_names)
 
 
 if __name__ == '__main__':
