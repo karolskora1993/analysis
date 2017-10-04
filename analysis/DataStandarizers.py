@@ -1,4 +1,5 @@
 from sklearn.preprocessing import StandardScaler
+from abc import ABC, abstractmethod
 
 class DataStandarizer(ABC):
     def fit(self, x_train, y_train):

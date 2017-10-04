@@ -5,8 +5,8 @@ from keras.models import Sequential
 from keras.optimizers import adam
 from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM, Conv1D, MaxPooling1D, GlobalAveragePooling1D
 from abc import ABC, abstractmethod
-from DataStandarizers import SimpleStandarizer
-from ModelTesters import SimpleTester
+from .DataStandarizers import SimpleStandarizer
+from .ModelTesters import SimpleTester
 from sklearn.utils import shuffle
 import sys
 import os
