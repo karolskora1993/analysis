@@ -8,17 +8,17 @@ ALL_DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnio
 OUTPUT_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/statystyki_v2/'
 
 
-def calculate_stats(dataFrame):
+def calculate_stats(df):
     stats = {}
-    for label in dataFrame.keys():
-        stats[label] = dataFrame[label].describe()
+    for label in df.keys():
+        stats[label] = df[label].describe()
     return stats
 
 
-def calculate_corr(dataFrame):
+def calculate_corr(df):
     corr = {}
     for method in ['pearson']:
-        corr[method] = dataFrame.corr(method=method)
+        corr[method] = df.corr(method=method)
     return corr
 
 def _load_data_frame(file):
@@ -26,8 +26,8 @@ def _load_data_frame(file):
     return df
 
 
-def _save_stats_to_file(stats, fileName):
-    outputFullPath = OUTPUT_PATH + fileName + ''
+def _save_stats_to_file(stats, file_name):
+    outputFullPath = OUTPUT_PATH + file_name + ''
     with open(outputFullPath, 'w') as file:
         for label in stats.keys():
             file.write('Zmienna: ' + label + '\n')
@@ -35,9 +35,9 @@ def _save_stats_to_file(stats, fileName):
             file.write('\n\n\n')
 
 
-def _save_corr_to_file(corr, fileName):
+def _save_corr_to_file(corr, file_name):
     for key in corr:
-        outputFullPath = OUTPUT_PATH + fileName + key + '.csv'
+        outputFullPath = OUTPUT_PATH + file_name + key + '.csv'
         corr[key].to_csv(outputFullPath)
 
 

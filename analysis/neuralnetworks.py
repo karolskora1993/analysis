@@ -5,7 +5,8 @@ from keras.models import Sequential
 from keras.optimizers import adam
 from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM, Conv1D, MaxPooling1D, GlobalAveragePooling1D
 from abc import ABC, abstractmethod
-from sklearn.preprocessing import StandardScaler
+from DataStandarizers import SimpleStandarizer
+from ModelTesters import SimpleTester
 from sklearn.utils import shuffle
 import sys
 import os
@@ -29,45 +30,6 @@ BLOCK_NAMES = [
     # 'blok III',
     # 'blok IV'
 ]
-
-
-
-class ModelTester(ABC):
-    @abstractmethod
-    def test_model(self, model, x_test, y_test):
-        pass
-
-
-class DataStandarizer(ABC):
-    def fit(self, x_train, y_train):
-        self._input_scaler = StandardScaler()
-        self._input_scaler.fit(x_train)
-        self._output_scaler = StandardScaler()
-        self._output_scaler.fit(y_train.reshape(-1, 1))
-
-    @abstractmethod
-    def standarize_data(self, input_data, output_data):
-        pass
-
-
-class SimpleStandarizer(DataStandarizer):
-    def standarize_data(self, input_data, output_data):
-        if not isinstance(input_data, list) and not isinstance(output_data, list):
-            raise ValueError('input_data and output_data are not a list')
-        standarized_input_data = []
-        standarized_output_data = []
-        for single_input in input_data:
-            standarized_input_data.append(self._input_scaler.transform(single_input))
-        for single_output in output_data:
-            standarized_output_data.append(self._output_scaler.transform(single_output.reshape(-1, 1)))
-
-        return standarized_input_data, standarized_output_data
-
-
-class SimpleTester(ModelTester):
-    def test_model(self, model, x_test, y_test, y_train):
-        predictions = model.predict(x_test)
-        return r_2score(y_test, predictions, y_train)
 
 
 class Model(ABC):
@@ -389,13 +351,6 @@ def shift_data(input_data, output_data, delay):
     output_data = output_data[delay:]
     return input_data, output_data
 
-
-def r_2score(y_true, y_pred, y_mean):
-    mean = y_mean.mean()
-    ss_res = sum((y_true - y_pred)**2)
-    ss_tot = sum((y_true - mean)**2)
-
-    return 1 - ss_res/ss_tot
 
 
 def model_block(block_name, data, var_names):

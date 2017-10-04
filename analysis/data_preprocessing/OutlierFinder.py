@@ -52,9 +52,9 @@ class OutlierFinder:
         pickle.dump(outlier_indexes, open(self._save_path, 'wb'))
 
 
-def main():
+def _main():
     finder = OutlierFinder(VARS_FILE_PATH, DATA_PATH, SAVE_PATHS[0])
     finder.find_outliers()
 
 if __name__ == '__main__':
-    main()
+    _main()

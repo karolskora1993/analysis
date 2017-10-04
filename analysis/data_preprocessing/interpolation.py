@@ -68,7 +68,7 @@ class Interpolation(object):
         print("data extended")
 
 
-def main():
+def _main():
 
     for file in FilesToInterpolate.files:
         interpolation = Interpolation(file['name'] + '.xlsx', file['sheet_name'], file['gaps'], file['gapsAfter'])
@@ -78,4 +78,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    _main()

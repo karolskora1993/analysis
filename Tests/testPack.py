@@ -10,16 +10,16 @@ class TestPack(unittest.TestCase):
     df = None
 
     def testShouldOpenFile(self):
-        self.assertIsNotNone(self.testInstance.sheet, "sheet not created")
+        self.assertIsNotNone(self.testInstance._sheet, "sheet not created")
 
     def testShouldCreateData(self):
-        self.assertIsNotNone(self.testInstance.columnLabels)
-        self.assertIsNotNone(self.testInstance.newData)
+        self.assertIsNotNone(self.testInstance._column_labels)
+        self.assertIsNotNone(self.testInstance._new_data)
 
 
     def testShouldCutData(self):
         df = self.testInstance.cut()
-        for label in self.testInstance.columnLabels:
+        for label in self.testInstance._column_labels:
             self.assertEqual((numberOfTestRows-1)/testGaps + 1, len(df[label]))
 
 

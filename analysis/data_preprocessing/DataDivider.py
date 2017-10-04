@@ -7,11 +7,10 @@ DEST_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/b
 
 class DataDivider:
     
-    def __init__(self, blocks_path, block_names, data_path, destination_path):
+    def __init__(self, blocks_path, block_names, data_path):
         self.blocks_data = pd.read_excel(blocks_path, sheetname=block_names)
         self.blocks_names = block_names
         self.data = pd.read_csv(data_path)
-        self.dest_path = destination_path
         print('data loaded')
 
     def find_mismatch(self):
@@ -34,6 +33,7 @@ class DataDivider:
 
     def divide_into_groups(self):
         if not self.find_mismatch():
+            blocks = []
             for key in self.blocks_data.keys():
                 block_vars = []
                 for var_name in self.blocks_data[key]['zmienne']:
@@ -41,12 +41,16 @@ class DataDivider:
                         block_vars.append(var_name)
                 block_vars.append('timestamp')
                 block_df = self.data[block_vars]
-                block_df.to_csv(self.dest_path+key+'.csv')
-                print('{0} zapisany'.format(key))
+                blocks.append(block_df)
+        return blocks
 
-def main():
-    data_divider = DataDivider(BLOCKS_PATH, ['blok I', 'blok II', 'blok III', 'blok IV'], DATA_PATH, DEST_PATH)
-    data_divider.divide_into_groups()
+def _main():
+    block_names = ['blok I', 'blok II', 'blok III', 'blok IV']
+    data_divider = DataDivider(BLOCKS_PATH, block_names, DATA_PATH)
+    blocks = data_divider.divide_into_groups()
+    for i, block in enumerate(blocks):
+        block_df.to_csv(DEST_PATH + block_names[i] + '.csv')
+        print('{0} zapisany'.format(key))
 
 if __name__ == '__main__':
-    main()
+    _main()
