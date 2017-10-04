@@ -1,17 +1,12 @@
-import pandas as pd
-import numpy as np
-import pickle
-from keras.models import Sequential
 from keras.optimizers import adam
-from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM, Conv1D, MaxPooling1D, GlobalAveragePooling1D
-from abc import ABC, abstractmethod
 from .DataStandarizers import SimpleStandarizer
 from .ModelTesters import SimpleTester
+from .Models import KerasMLPModel
+from .helpers.DataLoader import DataLoader
 from sklearn.utils import shuffle
 import sys
 import os
 
-sys.setrecursionlimit(10000)
 COL_NAMES = ['in', 'control', 'out', 'delay']
 LAST_TRAIN_IDX = 205038
 LAST_VALIDATE_IDX = 257133
@@ -23,316 +18,13 @@ HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
 MODEL_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/'
 SCORE_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/stats/'
-BLOCK_VARS_PATH_XLSX = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
+BLOCK_VARS_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
 BLOCK_NAMES = [
     # 'blok I',
     'blok II',
     # 'blok III',
     # 'blok IV'
 ]
-
-
-class Model(ABC):
-    def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None):
-        self._model_tester = model_tester
-        self._model = None
-        self._last_train_idx = last_train_index
-        self._last_validate_idx = last_validate_index
-        self._input_scaler = None
-        self._output_scaler = None
-        self._model_standarizer = model_standarizer
-        self._validate_data(input_data, output_data)
-        self._divide_data(input_data, output_data)
-        if self._model_standarizer:
-            self.standarize_data()
-
-    def standarize_data(self):
-        self._model_standarizer.fit(self._x_train, self._y_train)
-        input_data, output_data = self._model_standarizer.standarize_data([self._x_train, self._x_validate, self._x_test],
-                                                                          [self._y_train, self._y_validate, self._y_test])
-        self._x_train = input_data[0]
-        self._y_train = output_data[0]
-        self._x_validate = input_data[1]
-        self._y_validate = output_data[1]
-        self._x_test = input_data[2]
-        self._y_test = output_data[2]
-
-
-    def _divide_data(self, input_data, output_data):
-        self._x_test = input_data[self._last_validate_idx:]
-        self._x_train = input_data[:self._last_train_idx]
-        self._y_test = output_data[self._last_validate_idx:]
-        self._y_train = output_data[:self._last_train_idx]
-        self._x_validate = input_data[self._last_train_idx: self._last_validate_idx]
-        self._y_validate = output_data[self._last_train_idx: self._last_validate_idx]
-
-
-    def _validate_data(self, input_data, output_data):
-        if np.any(np.isnan(input_data)) or np.any(np.isnan(output_data)):
-            raise ValueError('Data contains NaN values')
-        if not np.all(np.isfinite(input_data)) or not np.all(np.isfinite(output_data)):
-            raise ValueError('Data contains infinite values')
-
-    def test_model(self):
-        r2_test = self._model_tester.test_model(self._model, self._x_test, self._y_test, self._y_train)
-        r2_validate = self._model_tester.test_model(self._model, self._x_validate, self._y_validate, self._y_train)
-        r2_train = self._model_tester.test_model(self._model, self._x_train, self._y_train, self._y_train)
-
-        return r2_test, r2_validate, r2_train
-
-    def get_model(self):
-        return self._model
-
-    def train_model(self, epochs=500):
-        print('Train models, number of epochs: {0}'.format(epochs))
-        self._fit(self._x_train, self._y_train, epochs=epochs, batch_size=BATCH_SIZE, validation_data=(self._x_validate, self._y_validate))
-
-    @abstractmethod
-    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error'):
-        pass
-
-    @abstractmethod
-    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
-        pass
-
-    @abstractmethod
-    def predict(self, x):
-        pass
-
-
-class RecurrentModel(Model):
-
-    def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None, steps_back=1):
-        super().__init__(input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer)
-        self._steps_back = steps_back
-        self._transform_data()
-        self._reshape_data()
-
-    def _series_to_supervised(self, data):
-        n_vars = 1 if type(data) is list else data.shape[1]
-        df = pd.DataFrame(data)
-        cols, names = list(), list()
-        for i in range(self._steps_back, 0, -1):
-            cols.append(df.shift(i))
-            names += [('var%d(t-%d)' % (j + 1, i)) for j in range(n_vars)]
-        for i in range(0, self._steps_back):
-            cols.append(df.shift(-i))
-            if i == 0:
-                names += [('var%d(t)' % (j + 1)) for j in range(n_vars)]
-            else:
-                names += [('var%d(t+%d)' % (j + 1, i)) for j in range(n_vars)]
-        agg = pd.concat(cols, axis=1)
-        agg.columns = names
-        agg = agg[1:]
-        return agg.values
-
-    def _transform_data(self):
-        self._x_train = self._series_to_supervised(self._x_train)
-        # self._y_train = self._series_to_supervised(self._y_train)
-        self._x_validate = self._series_to_supervised(self._x_validate)
-        # self._y_validate = self._series_to_supervised(self._y_validate)
-        self._x_test = self._series_to_supervised(self._x_test)
-        # self._y_test = self._series_to_supervised(self._y_test)
-
-    def _reshape_data(self):
-        self._x_train = self._x_train.reshape((self._x_train.shape[0], self._steps_back, self._x_train.shape[1]))
-        self._x_validate = self._x_validate.reshape((self._x_validate.shape[0], self._steps_back, self._x_validate.shape[1]))
-        self._x_test = self._x_test.reshape((self._x_test.shape[0], self._steps_back, self._x_test.shape[1]))
-        self._y_train = self._y_train[1:]
-        self._y_validate = self._y_validate[1:]
-        self._y_test = self._y_test[1:]
-
-
-    @abstractmethod
-    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error'):
-        pass
-
-    @abstractmethod
-    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
-        pass
-
-    @abstractmethod
-    def predict(self, x):
-        pass
-
-
-
-class KerasMLPModel(Model):
-
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error'):
-        self._model = Sequential()
-        input_size = self._x_train.shape[1]
-        output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
-        network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
-        print('input_size: {0} output_size: {1} network_shape: {2}'.format(input_size, output_size, network_shape))
-
-        if network_shape and network_shape[0] > 0:
-            for i, layer in enumerate(network_shape):
-                if layer > 0:
-                    if i == 0:
-                        self._model.add(Dense(layer, input_dim=input_size, activation='relu', kernel_initializer='normal'))
-                    else:
-                        self._model.add(Dense(layer, activation='relu', kernel_initializer='normal'))
-                    self._model.add(Dropout(DROPOUT))
-        else:
-            print('No network shape provided')
-            print('Default network shape: (5,)')
-            self._model.add(Dense(5, input_dim=input_size, activation='relu'))
-
-        self._model.add(Dense(output_size))
-
-        self._model.compile(optimizer=optimizer, loss=loss)
-        print('Model created')
-
-    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
-        self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2,
-                        validation_data=validation_data)
-
-    def predict(self, x):
-        return self._model.predict(x, batch_size=BATCH_SIZE)
-
-    def __str__(self):
-        return "KerasMLP"
-
-
-class KerasSimpleRNNModel(RecurrentModel):
-
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error'):
-        self._model = Sequential()
-        input_dim = (self._x_train.shape[1], self._x_train.shape[2])
-        output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
-        network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
-        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2} steps_back:{3}'.format(input_dim, output_size, network_shape,
-                                                                                           self._steps_back))
-
-        if network_shape and network_shape[0] > 0:
-            for i, layer in enumerate(network_shape):
-                if layer > 0:
-                    if i == 0:
-                        self._model.add(SimpleRNN(layer, input_shape=input_dim, activation='relu', kernel_initializer='normal', return_sequences=True))
-                    else:
-                        self._model.add(SimpleRNN(layer, activation='relu', kernel_initializer='normal', return_sequences=True))
-                    self._model.add(Dropout(DROPOUT))
-        else:
-            print('No network shape provided')
-            print('Default network shape: (5,)')
-            self._model.add(SimpleRNN(5, input_shape=input_dim, activation='relu', return_sequences=True))
-
-        self._model.add(Flatten())
-        # self._model.add(Dense(10, activation='relu', kernel_initializer='normal'))
-        self._model.add(Dense(output_size))
-        self._model.compile(optimizer=optimizer, loss=loss)
-        print('Model created')
-
-    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
-        self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2)
-
-    def predict(self, x):
-        return self._model.predict(x, batch_size=BATCH_SIZE)
-
-    def __str__(self):
-        return "KerasSimpleRNN"
-
-
-class KerasLSTMModel(RecurrentModel):
-
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error'):
-        self._model = Sequential()
-        input_dim = (self._x_train.shape[1], self._x_train.shape[2])
-        output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
-        network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
-        print('KerasSimpleRNN, input_size: {0} output_size: {1} network_shape: {2} steps_back:'.format(input_dim, output_size, network_shape),
-              self._steps_back)
-
-        if network_shape and network_shape[0] > 0:
-            for i, layer in enumerate(network_shape):
-                if layer > 0:
-                    if i == 0:
-                        self._model.add(LSTM(layer, input_shape=input_dim, activation='relu', kernel_initializer='normal', return_sequences=True))
-                    else:
-                        self._model.add(LSTM(layer, activation='relu', kernel_initializer='normal', return_sequences=True))
-                    self._model.add(Dropout(DROPOUT))
-        else:
-            print('No network shape provided')
-            print('Default network shape: (5,)')
-            self._model.add(LSTM(5, input_shape=input_dim, activation='relu', return_sequences=True))
-
-        self._model.add(Flatten())
-        # self._model.add(Dense(10, activation='relu', kernel_initializer='normal'))
-        self._model.add(Dense(output_size))
-        self._model.compile(optimizer=optimizer, loss=loss)
-        print('Model created')
-
-    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
-        self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2)
-
-    def predict(self, x):
-        return self._model.predict(x, batch_size=BATCH_SIZE)
-
-    def __str__(self):
-        return "KerasLSTM"
-
-class KerasConvModel(Model):
-
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error'):
-        self._model = Sequential()
-        input_size = self._x_train.shape[1]
-        output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
-        network_shape = network_shape if network_shape is not None and isinstance(network_shape, tuple) else None
-        print('KerasConvModel, input_size: {0} output_size: {1} network_shape: {2}'.format(input_size, output_size, network_shape))
-
-        if network_shape and network_shape[0] > 0:
-            for i, layer in enumerate(network_shape):
-                if layer > 0:
-                    if i == 0:
-                        pass
-                    else:
-                        pass
-                    self._model.add(Dropout(DROPOUT))
-        else:
-            print('No network shape provided')
-            print('Default network shape: Conv1D(32)-Conv1D(64)-MaxPooling1D(3)-Conv1D(128)-Conv1D(128)-'
-                  'GlobalAveragePooling1D- Droput-Dense(1)')
-
-            self._model.add(Conv1D(32, 2, activation='relu', input_shape=(None, input_size), kernel_initializer='normal'))
-            self._model.add(Conv1D(64, 2, activation='relu', kernel_initializer='normal'))
-            self._model.add(MaxPooling1D(2))
-            self._model.add(Conv1D(128, 2, activation='relu', kernel_initializer='normal'))
-            self._model.add(Conv1D(128, 2, activation='relu', kernel_initializer='normal'))
-            self._model.add(GlobalAveragePooling1D())
-            self._model.add(Dropout(0.5))
-            self._model.add(Flatten())
-        self._model.add(Dense(output_size))
-        self._model.compile(optimizer=optimizer, loss=loss)
-        print('Model created')
-
-    def _fit(self, x_train, y_train, epochs, batch_size, validation_data):
-        self._model.fit(x_train, y_train, epochs=epochs, batch_size=BATCH_SIZE, verbose=2)
-
-    def predict(self, x):
-        return self._model.predict(x, batch_size=BATCH_SIZE)
-
-    def __str__(self):
-        return "KerasConv"
-
-
-class DataLoader(object):
-    @staticmethod
-    def load_data(block_name):
-        df = pd.read_csv(LOAD_PATH + block_name + '.csv', index_col=0)
-        print('data loaded')
-        return df
-
-    @staticmethod
-    def load_block_vars():
-        df = pd.read_excel(BLOCK_VARS_PATH_XLSX, sheetname=None)
-        print('blocks vars loaded')
-        return df
-
-    @staticmethod
-    def save_model(model, save_path):
-        pickle.dump(model, open(save_path, 'wb'))
-        print('Model saved')
 
 
 def get_network_shape():
@@ -350,7 +42,6 @@ def shift_data(input_data, output_data, delay):
     input_data = input_data[: -delay]
     output_data = output_data[delay:]
     return input_data, output_data
-
 
 
 def model_block(block_name, data, var_names):
@@ -372,8 +63,8 @@ def model_block(block_name, data, var_names):
             x, y = input_data, output_data
 
         model = KerasMLPModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
-        model.create_model(network_shape,  optimizer=OPTIMIZER)
-        model.train_model(epochs)
+        model.create_model(network_shape, optimizer=OPTIMIZER, dropout=DROPOUT)
+        model.train_model(epochs, batch_size=BATCH_SIZE)
 
         r2 = model.test_model()
         block_models.append({'output': var_out, 'model': model.get_model()})
@@ -392,13 +83,12 @@ def model_block(block_name, data, var_names):
 
 
 def main():
-    block_vars = DataLoader.load_block_vars()
+    block_vars = DataLoader.load_block_vars(BLOCK_VARS_PATH)
     for block_name in BLOCK_NAMES:
         print(block_name)
-        data = DataLoader.load_data(block_name)
+        data = DataLoader.load_data(block_name, LOAD_PATH)
         data = shuffle(data)
         var_names = block_vars[block_name][COL_NAMES]
-        #keras MLP model
         block_models = model_block(block_name, data, var_names)
 
 
