@@ -2,7 +2,7 @@ from keras.optimizers import adam
 from .DataStandarizers import SimpleStandarizer
 from .ModelTesters import SimpleTester
 from .Models import KerasMLPModel
-from .helpers.DataLoader import DataLoader
+from .helpers.DataHandler import save_stats_txt, save_model, save_stats_xls, load_data, load_block_vars
 from sklearn.utils import shuffle
 import sys
 import os
@@ -35,7 +35,7 @@ def get_network_shape():
             if i > 0:
                 cmd_line_args.append(int(arg))
         network_shape = tuple(cmd_line_args)
-    return (network_shape[:-1], network_shape[-1]) if network_shape else (None, 10)
+    return (network_shape[:-1], network_shape[-1]) if network_shape else (None, 5)
 
 
 def shift_data(input_data, output_data, delay):
@@ -67,29 +67,26 @@ def model_block(block_name, data, var_names):
         model.train_model(epochs, batch_size=BATCH_SIZE)
 
         r2 = model.test_model()
-        block_models.append({'output': var_out, 'model': model.get_model()})
+        block_models.append([var_out, r2[0], r2[1], r2[2]])
         save_path = MODEL_SAVE_PATH + var_out + '.p'
-        DataLoader.save_model(model, save_path)
-        SAVE_FILE_NAME = '{blok}_score_{network_shape}_{epochs}epochs_{model}.txt'.format(blok=block_name,
+        save_model(model, save_path)
+        SAVE_FILE_NAME = '{blok}_score_{network_shape}_{epochs}epochs_{model}'.format(blok=block_name,
                                                                                           network_shape=network_shape,
                                                                                           epochs=epochs,
                                                                                           model=model)
-
-        with open(SCORE_SAVE_PATH + SAVE_FILE_NAME.format(var_out=var_out, network_shape=network_shape, epochs=epochs),
-                  'a') as file:
-            file.write('zmienna: {0}\t\t r^2_test: {1}\t\t r^2_validate: {2}\t\t r^2_train: {3}\n'.format(var_out, r2[0], r2[1]
-                                                                                                  , r2[2]))
-    return block_models
+        save_stats_path = SCORE_SAVE_PATH + SAVE_FILE_NAME.format(var_out=var_out, network_shape=network_shape, epochs=epochs)
+        save_stats_txt(save_stats_path, var_out, r2)
+    save_stats_xls(save_stats_path + '.xlsx', block_models, ['var_out', 'r2_test', 'r2_validate', 'r2_train'])
 
 
 def main():
-    block_vars = DataLoader.load_block_vars(BLOCK_VARS_PATH)
+    block_vars =load_block_vars(BLOCK_VARS_PATH)
     for block_name in BLOCK_NAMES:
         print(block_name)
-        data = DataLoader.load_data(block_name, LOAD_PATH)
+        data = load_data(block_name, LOAD_PATH)
         data = shuffle(data)
         var_names = block_vars[block_name][COL_NAMES]
-        block_models = model_block(block_name, data, var_names)
+        model_block(block_name, data, var_names)
 
 
 if __name__ == '__main__':
