@@ -1,4 +1,4 @@
-from .AbstractModels import Model, RecurrentModel
+from analysis.AbstractModels import Model, RecurrentModel
 from keras.models import Sequential
 from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM, Conv1D, MaxPooling1D, GlobalAveragePooling1D
 

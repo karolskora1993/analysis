@@ -1,8 +1,8 @@
 from keras.optimizers import adam
-from .DataStandarizers import SimpleStandarizer
-from .ModelTesters import SimpleTester
-from .Models import KerasMLPModel
-from .helpers.DataHandler import save_stats_txt, save_model, save_stats_xls, load_data, load_block_vars
+from analysis.DataStandarizers import SimpleStandarizer
+from analysis.ModelTesters import SimpleTester
+from analysis.Models import KerasMLPModel, KerasSimpleRNNModel
+from analysis.helpers.DataHandler import save_stats_txt, save_model, save_stats_xls, load_data, load_block_vars
 from sklearn.utils import shuffle
 import sys
 import os
@@ -12,7 +12,7 @@ LAST_TRAIN_IDX = 205038
 LAST_VALIDATE_IDX = 257133
 BATCH_SIZE = 500
 DROPOUT = 0.4
-TIMESTEPS = 10
+TIMESTEPS = 2
 OPTIMIZER = adam(lr=0.001)
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
@@ -62,7 +62,7 @@ def model_block(block_name, data, var_names):
         else:
             x, y = input_data, output_data
 
-        model = KerasMLPModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
+        model = KerasSimpleRNNModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer(), steps_back=TIMESTEPS)
         model.create_model(network_shape, optimizer=OPTIMIZER, dropout=DROPOUT)
         model.train_model(epochs, batch_size=BATCH_SIZE)
 

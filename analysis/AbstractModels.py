@@ -30,12 +30,13 @@ class Model(ABC):
 
 
     def _divide_data(self, input_data, output_data):
-        self._x_test = input_data[self._last_validate_idx:]
         self._x_train = input_data[:self._last_train_idx]
-        self._y_test = output_data[self._last_validate_idx:]
-        self._y_train = output_data[:self._last_train_idx]
         self._x_validate = input_data[self._last_train_idx: self._last_validate_idx]
+        self._x_test = input_data[self._last_validate_idx:]
+
+        self._y_train = output_data[:self._last_train_idx]
         self._y_validate = output_data[self._last_train_idx: self._last_validate_idx]
+        self._y_test = output_data[self._last_validate_idx:]
 
 
     def _validate_data(self, input_data, output_data):
@@ -79,36 +80,29 @@ class RecurrentModel(Model):
         self._transform_data()
         self._reshape_data()
 
-    def _series_to_supervised(self, data):
+    def _shift_data(self, data):
         n_vars = 1 if type(data) is list else data.shape[1]
         df = pd.DataFrame(data)
         cols, names = list(), list()
-        for i in range(self._steps_back, 0, -1):
-            cols.append(df.shift(i))
-            names += [('var%d(t-%d)' % (j + 1, i)) for j in range(n_vars)]
-        for i in range(0, self._steps_back):
+        for i in range(self._steps_back, -1, -1):
             cols.append(df.shift(-i))
-            if i == 0:
-                names += [('var%d(t)' % (j + 1)) for j in range(n_vars)]
-            else:
-                names += [('var%d(t+%d)' % (j + 1, i)) for j in range(n_vars)]
-        agg = pd.concat(cols, axis=1)
-        agg.columns = names
-        agg = agg[1:]
+
+        agg = pd.concat(cols, axis=1)[:-self._steps_back]
         return agg.values
 
     def _transform_data(self):
-        self._x_train = self._series_to_supervised(self._x_train)
+        self._x_train = self._shift_data(self._x_train)
         # self._y_train = self._series_to_supervised(self._y_train)
-        self._x_validate = self._series_to_supervised(self._x_validate)
+        self._x_validate = self._shift_data(self._x_validate)
         # self._y_validate = self._series_to_supervised(self._y_validate)
-        self._x_test = self._series_to_supervised(self._x_test)
+        self._x_test = self._shift_data(self._x_test)
         # self._y_test = self._series_to_supervised(self._y_test)
 
     def _reshape_data(self):
-        self._x_train = self._x_train.reshape((self._x_train.shape[0], self._steps_back, self._x_train.shape[1]))
-        self._x_validate = self._x_validate.reshape((self._x_validate.shape[0], self._steps_back, self._x_validate.shape[1]))
-        self._x_test = self._x_test.reshape((self._x_test.shape[0], self._steps_back, self._x_test.shape[1]))
+        self._x_train = self._x_train.reshape((self._x_train.shape[0], self._steps_back, self._x_train.shape[1]//self._steps_back))
+        self._x_validate = self._x_validate.reshape((self._x_validate.shape[0], self._steps_back, self._x_validate.shape[1]//self._steps_back))
+        self._x_test = self._x_test.reshape((self._x_test.shape[0], self._steps_back, self._x_test.shape[1]//self._steps_back))
+
         self._y_train = self._y_train[1:]
         self._y_validate = self._y_validate[1:]
         self._y_test = self._y_test[1:]
