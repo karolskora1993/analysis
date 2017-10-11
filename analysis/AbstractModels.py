@@ -57,7 +57,10 @@ class Model(ABC):
 
     def train_model(self, epochs=500, batch_size=500):
         print('Train models, number of epochs: {0}'.format(epochs))
-        self._fit(self._x_train, self._y_train, epochs=epochs, batch_size=batch_size, validation_data=(self._x_validate, self._y_validate))
+        self._fit(self._x_train, self._y_train, epochs, (self._x_validate, self._y_validate), batch_size)
+
+    def save_model(self, path, model_name):
+        self._model.save(path+"{0}.h5".format(model_name))
 
     @abstractmethod
     def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error', dropout=0.5):
@@ -85,9 +88,9 @@ class RecurrentModel(Model):
         df = pd.DataFrame(data)
         cols, names = list(), list()
         for i in range(self._steps_back, -1, -1):
-            cols.append(df.shift(-i))
+            cols.append(df.shift(i))
 
-        agg = pd.concat(cols, axis=1)[:-self._steps_back]
+        agg = pd.concat(cols, axis=1)[self._steps_back:]
         return agg.values
 
     def _transform_data(self):
@@ -99,13 +102,15 @@ class RecurrentModel(Model):
         # self._y_test = self._series_to_supervised(self._y_test)
 
     def _reshape_data(self):
-        self._x_train = self._x_train.reshape((self._x_train.shape[0], self._steps_back, self._x_train.shape[1]//self._steps_back))
-        self._x_validate = self._x_validate.reshape((self._x_validate.shape[0], self._steps_back, self._x_validate.shape[1]//self._steps_back))
-        self._x_test = self._x_test.reshape((self._x_test.shape[0], self._steps_back, self._x_test.shape[1]//self._steps_back))
+        shape_1 = self._steps_back + 1
+        shape_2 = self._x_train.shape[1] // (self._steps_back + 1)
+        self._x_train = self._x_train.reshape((self._x_train.shape[0], shape_1, shape_2))
+        self._x_validate = self._x_validate.reshape((self._x_validate.shape[0], shape_1, shape_2))
+        self._x_test = self._x_test.reshape((self._x_test.shape[0], shape_1, shape_2))
 
-        self._y_train = self._y_train[1:]
-        self._y_validate = self._y_validate[1:]
-        self._y_test = self._y_test[1:]
+        self._y_train = self._y_train[self._steps_back:]
+        self._y_validate = self._y_validate[self._steps_back:]
+        self._y_test = self._y_test[self._steps_back:]
 
 
     @abstractmethod

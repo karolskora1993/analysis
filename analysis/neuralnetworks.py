@@ -1,8 +1,8 @@
 from keras.optimizers import adam
-from analysis.DataStandarizers import SimpleStandarizer
-from analysis.ModelTesters import SimpleTester
-from analysis.Models import KerasMLPModel, KerasSimpleRNNModel
-from analysis.helpers.DataHandler import save_stats_txt, save_model, save_stats_xls, load_data, load_block_vars
+from DataStandarizers import SimpleStandarizer
+from ModelTesters import SimpleTester, LassoTester
+from Models import KerasMLPModel, KerasSimpleRNNModel, KerasConvLSTMModel, KerasLSTMModel, SklearnLasso, KerasConvModel
+from helpers.DataHandler import save_stats_txt, save_stats_xls, load_data, load_block_vars
 from sklearn.utils import shuffle
 import sys
 import os
@@ -12,18 +12,18 @@ LAST_TRAIN_IDX = 205038
 LAST_VALIDATE_IDX = 257133
 BATCH_SIZE = 500
 DROPOUT = 0.4
-TIMESTEPS = 2
+TIMESTEPS = 10
 OPTIMIZER = adam(lr=0.001)
 HOME_PATH = str(os.path.expanduser('~')+'/')
-LOAD_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
-MODEL_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/'
-SCORE_SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/models/stats/'
-BLOCK_VARS_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
+LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v4/'
+MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/'
+SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/'
+BLOCK_VARS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
 BLOCK_NAMES = [
     # 'blok I',
-    'blok II',
-    # 'blok III',
-    # 'blok IV'
+    # 'blok II',
+    'blok III',
+    'blok IV'
 ]
 
 
@@ -35,7 +35,7 @@ def get_network_shape():
             if i > 0:
                 cmd_line_args.append(int(arg))
         network_shape = tuple(cmd_line_args)
-    return (network_shape[:-1], network_shape[-1]) if network_shape else (None, 5)
+    return (network_shape[:-1], network_shape[-1]) if network_shape else (None, 2)
 
 
 def shift_data(input_data, output_data, delay):
@@ -62,21 +62,21 @@ def model_block(block_name, data, var_names):
         else:
             x, y = input_data, output_data
 
-        model = KerasSimpleRNNModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer(), steps_back=TIMESTEPS)
+        model = KerasConvModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
         model.create_model(network_shape, optimizer=OPTIMIZER, dropout=DROPOUT)
         model.train_model(epochs, batch_size=BATCH_SIZE)
 
         r2 = model.test_model()
         block_models.append([var_out, r2[0], r2[1], r2[2]])
-        save_path = MODEL_SAVE_PATH + var_out + '.p'
-        save_model(model, save_path)
         SAVE_FILE_NAME = '{blok}_score_{network_shape}_{epochs}epochs_{model}'.format(blok=block_name,
                                                                                           network_shape=network_shape,
                                                                                           epochs=epochs,
                                                                                           model=model)
         save_stats_path = SCORE_SAVE_PATH + SAVE_FILE_NAME.format(var_out=var_out, network_shape=network_shape, epochs=epochs)
-        save_stats_txt(save_stats_path, var_out, r2)
-    save_stats_xls(save_stats_path + '.xlsx', block_models, ['var_out', 'r2_test', 'r2_validate', 'r2_train'])
+        save_stats_txt(save_stats_path + '.txt', var_out, r2)
+        model.save_model(MODEL_SAVE_PATH, SAVE_FILE_NAME)
+
+    # save_stats_xls(save_stats_path + '.xlsx', block_models, ['var_out', 'r2_test', 'r2_validate', 'r2_train'])
 
 
 def main():
@@ -84,7 +84,7 @@ def main():
     for block_name in BLOCK_NAMES:
         print(block_name)
         data = load_data(block_name, LOAD_PATH)
-        data = shuffle(data)
+        # data = shuffle(data)
         var_names = block_vars[block_name][COL_NAMES]
         model_block(block_name, data, var_names)
 

@@ -20,7 +20,7 @@ def save_model(model, save_path):
 
 
 def save_stats_txt(path, var_out, r2):
-    with open(path) as file:
+    with open(path, 'a') as file:
         file.write(
             'zmienna: {0}\t\t r^2_test: {1}\t\t r^2_validate: {2}\t\t r^2_train: {3}\n'.format(var_out,
                                                                                                r2[0],
