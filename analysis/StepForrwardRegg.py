@@ -2,17 +2,19 @@ import numpy as np
 import pandas as pd
 from sklearn import linear_model
 from sklearn.ensemble import RandomForestRegressor
+from helpers.DataHandler import save_model
 import os
 
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v4/'
 SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/'
+MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/'
 
 BLOCK_NAMES = [
     # 'blok I',
     'blok II',
-    # 'blok III',
-    # 'blok IV'
+    'blok III',
+    'blok IV'
 ]
 
 def calculate_Rkw(y, y_hat, y_mean):
@@ -83,6 +85,8 @@ def findBestRegModel(TrIn1, y, f, delay = 1):
     f.write(str(Rkw) + '\n\n')
     print(str(Tr2.columns.tolist()) + '\n')
     print(str(Rkw) + '\n\n')
+
+    return reg
 
 def normalize(X, test_end):
     for i in range(X.shape[1]):
@@ -155,8 +159,9 @@ def main():
         for i in range(TrOut.shape[1]):
             print(TrOut.columns[i])
             f.write(TrOut.columns[i] + ':\n\n')
-            findBestRegModel(TrIn, TrOut.iloc[:,i], f, delay=delay)
-            # findBestDTModel(TrIn, TrOut.iloc[:,i], f, delay=delay, max_d=3)
+            model = findBestRegModel(TrIn, TrOut.iloc[:,i], f, delay=delay)
+            save_path = MODEL_SAVE_PATH + '{block}_{var_out}_forward_reg.p'
+            save_model(model, save_path)
 
         f.close()
 
