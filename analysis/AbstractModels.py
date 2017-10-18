@@ -64,7 +64,7 @@ class Model(ABC):
         print('{0} saved'.format(model_name))
 
     @abstractmethod
-    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error', dropout=0.5):
+    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation='relu'):
         pass
 
     @abstractmethod
@@ -115,7 +115,7 @@ class RecurrentModel(Model):
 
 
     @abstractmethod
-    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error'):
+    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error', activation='relu'):
         pass
 
     @abstractmethod

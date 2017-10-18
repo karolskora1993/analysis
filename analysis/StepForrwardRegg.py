@@ -10,12 +10,14 @@ LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v4/'
 SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/'
 MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/'
 
-BLOCK_NAMES = [
-    # 'blok I',
-    'blok II',
-    'blok III',
-    'blok IV'
-]
+BLOCKS = {
+    # 'blok I': 23,
+    'blok II': 36,
+    'blok III': 21,
+    'blok IV': 28
+}
+
+
 
 def calculate_Rkw(y, y_hat, y_mean):
     tot = y-y_mean
@@ -145,8 +147,8 @@ def transfo(TrIn, TrOut):
 
 def main():
 
-    for block in BLOCK_NAMES:
-        TrIn, TrOut = load_data(block, LOAD_PATH, 36)
+    for block, vars_in in BLOCKS.items():
+        TrIn, TrOut = load_data(block, LOAD_PATH, vars_in)
         delay = 0
         TrIn = normalize(TrIn, test_end=205039)
 
@@ -160,7 +162,7 @@ def main():
             print(TrOut.columns[i])
             f.write(TrOut.columns[i] + ':\n\n')
             model = findBestRegModel(TrIn, TrOut.iloc[:,i], f, delay=delay)
-            save_path = MODEL_SAVE_PATH + '{block}_{var_out}_forward_reg.p'
+            save_path = MODEL_SAVE_PATH + '{0}_{1}_forward_reg.p'.format(block, TrOut.columns[i])
             save_model(model, save_path)
 
         f.close()

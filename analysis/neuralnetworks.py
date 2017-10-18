@@ -1,19 +1,23 @@
-from keras.optimizers import adam
+from keras.optimizers import Adadelta, adam
+from keras.activations import elu, relu
 from DataStandarizers import SimpleStandarizer
 from ModelTesters import SimpleTester, LassoTester
-from Models import KerasMLPModel, KerasSimpleRNNModel, KerasConvLSTMModel, KerasLSTMModel, SklearnLasso, KerasConvModel
+from Models import KerasMLPModel, KerasSimpleRNNModel, KerasConvLSTMModel, KerasLSTMModel, KerasConvModel
 from helpers.DataHandler import save_stats_txt, save_stats_xls, load_data, load_block_vars, save_model
 from sklearn.utils import shuffle
 import sys
 import os
+import pandas as pd
 
+TIMESTAPS_TO_REMOVE = 69
 COL_NAMES = ['in', 'control', 'out', 'delay']
 LAST_TRAIN_IDX = 205038
 LAST_VALIDATE_IDX = 257133
 BATCH_SIZE = 500
 DROPOUT = 0.4
 TIMESTEPS = 10
-OPTIMIZER = adam(lr=0.001)
+OPTIMIZER = adam()
+ACTIVATION = relu
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v4/'
 MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/'
@@ -21,9 +25,9 @@ SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/'
 BLOCK_VARS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
 BLOCK_NAMES = [
     # 'blok I',
-    'blok II',
+    # 'blok II',
     'blok III',
-    'blok IV'
+    # 'blok IV'
 ]
 
 
@@ -51,6 +55,11 @@ def model_block(block_name, data, var_names):
 
     block_models = []
     network_shape, epochs = get_network_shape()
+    if block_name == "blok III":
+        data = cut_data(data)
+        LAST_TRAIN_IDX = 205038 // 70
+        LAST_VALIDATE_IDX = 257133 // 70
+
     input_data = data[vars_in].as_matrix()
 
     for i, var_out in enumerate(vars_out):
@@ -62,8 +71,8 @@ def model_block(block_name, data, var_names):
         else:
             x, y = input_data, output_data
 
-        model = KerasConvModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
-        model.create_model(network_shape, optimizer=OPTIMIZER, dropout=DROPOUT)
+        model = KerasMLPModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
+        model.create_model(network_shape, optimizer=OPTIMIZER, dropout=DROPOUT, activation=ACTIVATION)
         model.train_model(epochs, batch_size=BATCH_SIZE)
 
         r2 = model.test_model()
@@ -71,17 +80,23 @@ def model_block(block_name, data, var_names):
         SAVE_FILE_NAME = '{blok}_score_{network_shape}_{epochs}epochs_{model}'.format(blok=block_name,
                                                                                           network_shape=network_shape,
                                                                                           epochs=epochs,
-                                                                                          model=model)
+                                                                                          model=model).replace(' ', '')
         save_stats_path = SCORE_SAVE_PATH + SAVE_FILE_NAME.format(var_out=var_out, network_shape=network_shape, epochs=epochs)
         save_stats_txt(save_stats_path + '.txt', var_out, r2)
         SAVE_FILE_NAME = '{block}_{var}_{model}_{network_shape}'.format(block=block_name, var=var_out, model=model, network_shape=network_shape)
         model.save_model(MODEL_SAVE_PATH, SAVE_FILE_NAME)
     save_stats_xls(save_stats_path + '.xlsx', block_models, ['var_out', 'r2_test', 'r2_validate', 'r2_train'])
 
+def cut_data(data):
+    values = data.values[0::70, :]
+    df = pd.DataFrame(values, columns=data.columns)
+    return df
+
 
 def main():
     block_vars =load_block_vars(BLOCK_VARS_PATH)
     for block_name in BLOCK_NAMES:
+
         print(block_name)
         data = load_data(block_name, LOAD_PATH)
         # data = shuffle(data)

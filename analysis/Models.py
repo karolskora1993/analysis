@@ -1,12 +1,12 @@
 from AbstractModels import Model, RecurrentModel
 from keras.models import Sequential
+from keras import regularizers
 from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM, Conv1D, MaxPooling1D, GlobalAveragePooling1D, ConvLSTM2D
-from sklearn.linear_model import Lasso
 import numpy as np
 
 class KerasMLPModel(Model):
 
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5):
+    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation = 'relu'):
         self._model = Sequential()
         input_size = self._x_train.shape[1]
         output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
@@ -17,14 +17,22 @@ class KerasMLPModel(Model):
             for i, layer in enumerate(network_shape):
                 if layer > 0:
                     if i == 0:
-                        self._model.add(Dense(layer, input_dim=input_size, activation='relu', kernel_initializer='normal'))
+                        self._model.add(Dense(layer,
+                                              input_dim=input_size,
+                                              activation=activation,
+                                              kernel_initializer='normal',
+                                              kernel_regularizer=regularizers.l2(0.01),
+                                              activity_regularizer=regularizers.l1(0.01)))
                     else:
-                        self._model.add(Dense(layer, activation='relu', kernel_initializer='normal'))
+                        self._model.add(Dense(layer,
+                                              activation=activation,
+                                              kernel_initializer='normal',
+                                              kernel_regularizer=regularizers.l2(0.01),
+                                              activity_regularizer=regularizers.l1(0.01)))
                     self._model.add(Dropout(dropout))
         else:
-            print('No network shape provided')
             print('Default network shape: (5,)')
-            self._model.add(Dense(5, input_dim=input_size, activation='relu'))
+            self._model.add(Dense(1, input_dim=input_size, activation='relu'))
 
         self._model.add(Dense(output_size))
 
@@ -44,7 +52,7 @@ class KerasMLPModel(Model):
 
 class KerasSimpleRNNModel(RecurrentModel):
 
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5):
+    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation='relu'):
         self._model = Sequential()
         input_dim = (self._x_train.shape[1], self._x_train.shape[2])
         output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
@@ -56,22 +64,22 @@ class KerasSimpleRNNModel(RecurrentModel):
             for i, layer in enumerate(network_shape):
                 if layer > 0:
                     if i == 0:
-                        self._model.add(SimpleRNN(layer, input_shape=input_dim, activation='relu', kernel_initializer='normal', return_sequences=True))
+                        self._model.add(SimpleRNN(layer, input_shape=input_dim, activation=activation, kernel_initializer='normal', return_sequences=True))
                     else:
-                        self._model.add(SimpleRNN(layer, activation='relu', kernel_initializer='normal', return_sequences=True))
+                        self._model.add(SimpleRNN(layer, activation=activation, kernel_initializer='normal', return_sequences=True))
                     self._model.add(Dropout(dropout))
         else:
             print('No network shape provided')
             print('Default network shape: (5,)')
-            self._model.add(SimpleRNN(5, input_shape=input_dim, activation='relu', return_sequences=True))
+            self._model.add(SimpleRNN(5, input_shape=input_dim, activation=activation, return_sequences=True))
 
         self._model.add(Flatten())
         self._model.add(Dense(output_size))
         self._model.compile(optimizer=optimizer, loss=loss)
         print('Model created')
 
-    def _fit(self, x_train, y_train, epochs, validation_dat, batch_size=500):
-        self._model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=2)
+    def _fit(self, x_train, y_train, epochs, validation_data, batch_size=500):
+        self._model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=2, validation_data=validation_data)
 
     def predict(self, x, batch_size=500):
         return self._model.predict(x, batch_size=batch_size)
@@ -82,7 +90,7 @@ class KerasSimpleRNNModel(RecurrentModel):
 
 class KerasLSTMModel(RecurrentModel):
 
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5):
+    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation='relu'):
         self._model = Sequential()
         input_dim = (self._x_train.shape[1], self._x_train.shape[2])
         output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
@@ -94,14 +102,14 @@ class KerasLSTMModel(RecurrentModel):
             for i, layer in enumerate(network_shape):
                 if layer > 0:
                     if i == 0:
-                        self._model.add(LSTM(layer, input_shape=input_dim, activation='relu', kernel_initializer='normal', return_sequences=True))
+                        self._model.add(LSTM(layer, input_shape=input_dim, activation=activation, kernel_initializer='normal', return_sequences=True))
                     else:
-                        self._model.add(LSTM(layer, activation='relu', kernel_initializer='normal', return_sequences=True))
+                        self._model.add(LSTM(layer, activation=activation, kernel_initializer='normal', return_sequences=True))
                     self._model.add(Dropout(dropout))
         else:
             print('No network shape provided')
             print('Default network shape: (5,)')
-            self._model.add(LSTM(5, input_shape=input_dim, activation='relu', return_sequences=True))
+            self._model.add(LSTM(5, input_shape=input_dim, activation=activation, return_sequences=True))
 
         self._model.add(Flatten())
         # self._model.add(Dense(10, activation='relu', kernel_initializer='normal'))
@@ -124,7 +132,7 @@ class KerasConvModel(Model):
         super().__init__(input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer)
         self._reshape_data()
 
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5):
+    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation='relu'):
         self._model = Sequential()
         input_dim = (self._x_train.shape[1], self._x_train.shape[2])
         output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
@@ -160,7 +168,7 @@ class KerasConvModel(Model):
 
 class KerasConvLSTMModel(RecurrentModel):
 
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5):
+    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation='relu'):
         self._model = Sequential()
         input_dim = (self._x_train.shape[1], self._x_train.shape[2])
         output_size = self._y_train[1] if isinstance(self._y_train[1], list) else 1
@@ -172,16 +180,16 @@ class KerasConvLSTMModel(RecurrentModel):
             for i, layer in enumerate(network_shape):
                 if layer > 0:
                     if i == 0:
-                        self._model.add(ConvLSTM2D(layer, input_shape=input_dim, activation='relu', kernel_initializer='normal', return_sequences=True))
+                        self._model.add(ConvLSTM2D(layer, input_shape=input_dim, activation=activation, kernel_initializer='normal', return_sequences=True))
                     else:
-                        self._model.add(ConvLSTM2D(layer, activation='relu', kernel_initializer='normal', return_sequences=True))
+                        self._model.add(ConvLSTM2D(layer, activation=activation, kernel_initializer='normal', return_sequences=True))
                     self._model.add(Dropout(dropout))
         else:
             print('No network shape provided')
             print('Default network shape: (5,)')
-            self._model.add(LSTM(layer, input_shape=input_dim, activation='relu', kernel_initializer='normal',
+            self._model.add(LSTM(5, input_shape=input_dim, activation=activation, kernel_initializer='normal',
                                  return_sequences=True))
-            self._model.add(ConvLSTM2D(32, 2, activation='relu', return_sequences=True))
+            self._model.add(ConvLSTM2D(32, 2, activation=activation, return_sequences=True))
 
         self._model.add(Flatten())
         # self._model.add(Dense(10, activation='relu', kernel_initializer='normal'))
@@ -203,19 +211,3 @@ class KerasConvLSTMModel(RecurrentModel):
     def __str__(self):
         return "KerasLSTM"
 
-
-class SklearnLasso(Model):
-
-    def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5):
-        self._model = Lasso()
-
-        print('Lasso Model created')
-
-    def _fit(self, x_train, y_train, epochs, validation_data, batch_size=500):
-        self._model.fit(x_train, y_train)
-
-    def predict(self, x, batch_size=500):
-        return self._model.predict(x)
-
-    def __str__(self):
-        return "SklearnLasso"
