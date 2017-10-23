@@ -1,7 +1,7 @@
 from AbstractModels import Model, RecurrentModel
 from keras.models import Sequential
 from keras import regularizers
-from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM, Conv1D, MaxPooling1D, GlobalAveragePooling1D, ConvLSTM2D
+from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM, Conv1D, MaxPooling1D, GlobalAveragePooling1D, ConvLSTM2D, GaussianNoise
 import numpy as np
 
 class KerasMLPModel(Model):
@@ -21,15 +21,13 @@ class KerasMLPModel(Model):
                                               input_dim=input_size,
                                               activation=activation,
                                               kernel_initializer='normal',
-                                              kernel_regularizer=regularizers.l2(0.01),
-                                              activity_regularizer=regularizers.l1(0.01)))
+                                              kernel_regularizer=regularizers.l1(0.01)))
+                        self._model.add(GaussianNoise(0.5))
                     else:
                         self._model.add(Dense(layer,
                                               activation=activation,
-                                              kernel_initializer='normal',
-                                              kernel_regularizer=regularizers.l2(0.01),
-                                              activity_regularizer=regularizers.l1(0.01)))
-                    self._model.add(Dropout(dropout))
+                                              kernel_initializer='normal'))
+                        self._model.add(Dropout(dropout))
         else:
             print('Default network shape: (5,)')
             self._model.add(Dense(1, input_dim=input_size, activation='relu'))

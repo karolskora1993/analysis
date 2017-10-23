@@ -31,4 +31,5 @@ def save_stats_txt(path, var_out, r2):
 def save_stats_xls(path, stats, labels):
     df = pd.DataFrame(stats, columns=labels)
     df.to_excel(path)
+    print("data saved")
 

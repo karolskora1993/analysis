@@ -8,11 +8,10 @@ from sklearn.utils import shuffle
 import sys
 import os
 import pandas as pd
+import numpy as np
 
 TIMESTAPS_TO_REMOVE = 69
 COL_NAMES = ['in', 'control', 'out', 'delay']
-LAST_TRAIN_IDX = 205038
-LAST_VALIDATE_IDX = 257133
 BATCH_SIZE = 500
 DROPOUT = 0.4
 TIMESTEPS = 10
@@ -59,6 +58,9 @@ def model_block(block_name, data, var_names):
         data = cut_data(data)
         LAST_TRAIN_IDX = 205038 // 70
         LAST_VALIDATE_IDX = 257133 // 70
+    else:
+        LAST_TRAIN_IDX = 205038
+        LAST_VALIDATE_IDX = 257133
 
     input_data = data[vars_in].as_matrix()
 
@@ -82,16 +84,20 @@ def model_block(block_name, data, var_names):
                                                                                           epochs=epochs,
                                                                                           model=model).replace(' ', '')
         save_stats_path = SCORE_SAVE_PATH + SAVE_FILE_NAME.format(var_out=var_out, network_shape=network_shape, epochs=epochs)
-        save_stats_txt(save_stats_path + '.txt', var_out, r2)
-        SAVE_FILE_NAME = '{block}_{var}_{model}_{network_shape}'.format(block=block_name, var=var_out, model=model, network_shape=network_shape)
-        model.save_model(MODEL_SAVE_PATH, SAVE_FILE_NAME)
-    save_stats_xls(save_stats_path + '.xlsx', block_models, ['var_out', 'r2_test', 'r2_validate', 'r2_train'])
+    if network_shape:
+        save_stats_xls(save_stats_path + '.xlsx', block_models, ['var_out', 'r2_test', 'r2_validate', 'r2_train'])
 
 def cut_data(data):
     values = data.values[0::70, :]
     df = pd.DataFrame(values, columns=data.columns)
     return df
 
+def shuffle_in_blocks(data, groups):
+    last_reshaped = (data.shape[0] // groups) * groups
+    data_to_reshape = data[:last_reshaped]
+    removed_data = data[last_reshaped:]
+    np.random.shuffle(data_to_reshape.values.reshape(data_to_reshape.shape[0]//groups, groups, data_to_reshape.shape[1]))
+    return data_to_reshape.append(removed_data)
 
 def main():
     block_vars =load_block_vars(BLOCK_VARS_PATH)
@@ -99,7 +105,7 @@ def main():
 
         print(block_name)
         data = load_data(block_name, LOAD_PATH)
-        # data = shuffle(data)
+        data = shuffle_in_blocks(data, TIMESTEPS)
         var_names = block_vars[block_name][COL_NAMES]
         model_block(block_name, data, var_names)
 

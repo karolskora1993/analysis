@@ -12,7 +12,6 @@ class Model(ABC):
         self._input_scaler = None
         self._output_scaler = None
         self._model_standarizer = model_standarizer
-        self._validate_data(input_data, output_data)
         self._divide_data(input_data, output_data)
         if self._model_standarizer:
             self.standarize_data()
@@ -37,13 +36,6 @@ class Model(ABC):
         self._y_train = output_data[:self._last_train_idx]
         self._y_validate = output_data[self._last_train_idx: self._last_validate_idx]
         self._y_test = output_data[self._last_validate_idx:]
-
-
-    def _validate_data(self, input_data, output_data):
-        if np.any(np.isnan(input_data)) or np.any(np.isnan(output_data)):
-            raise ValueError('Data contains NaN values')
-        if not np.all(np.isfinite(input_data)) or not np.all(np.isfinite(output_data)):
-            raise ValueError('Data contains infinite values')
 
     def test_model(self):
         r2_test = self._model_tester.test_model(self._model, self._x_test, self._y_test, self._y_train)
