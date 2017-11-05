@@ -1,10 +1,9 @@
 from abc import ABC, abstractmethod
 import pandas as pd
-import numpy as np
 
 
 class Model(ABC):
-    def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None):
+    def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None, steps_back=1):
         self._model_tester = model_tester
         self._model = None
         self._last_train_idx = last_train_index
@@ -12,6 +11,7 @@ class Model(ABC):
         self._input_scaler = None
         self._output_scaler = None
         self._model_standarizer = model_standarizer
+        self._steps_back = steps_back
         self._divide_data(input_data, output_data)
         if self._model_standarizer:
             self.standarize_data()
@@ -38,9 +38,9 @@ class Model(ABC):
         self._y_test = output_data[self._last_validate_idx:]
 
     def test_model(self):
-        r2_test = self._model_tester.test_model(self._model, self._x_test, self._y_test, self._y_train)
         r2_validate = self._model_tester.test_model(self._model, self._x_validate, self._y_validate, self._y_train)
         r2_train = self._model_tester.test_model(self._model, self._x_train, self._y_train, self._y_train)
+        r2_test = self._model_tester.test_model(self._model, self._x_test, self._y_test, self._y_train)
 
         return r2_test, r2_validate, r2_train
 
@@ -56,7 +56,7 @@ class Model(ABC):
         print('{0} saved'.format(model_name))
 
     @abstractmethod
-    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation='relu'):
+    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation='relu', l=0.01, kernel_init='normal'):
         pass
 
     @abstractmethod
@@ -71,13 +71,11 @@ class Model(ABC):
 class RecurrentModel(Model):
 
     def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None, steps_back=1):
-        super().__init__(input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer)
-        self._steps_back = steps_back
+        super().__init__(input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer, steps_back)
         self._transform_data()
         self._reshape_data()
 
     def _shift_data(self, data):
-        n_vars = 1 if type(data) is list else data.shape[1]
         df = pd.DataFrame(data)
         cols, names = list(), list()
         for i in range(self._steps_back, -1, -1):
@@ -88,11 +86,8 @@ class RecurrentModel(Model):
 
     def _transform_data(self):
         self._x_train = self._shift_data(self._x_train)
-        # self._y_train = self._series_to_supervised(self._y_train)
         self._x_validate = self._shift_data(self._x_validate)
-        # self._y_validate = self._series_to_supervised(self._y_validate)
         self._x_test = self._shift_data(self._x_test)
-        # self._y_test = self._series_to_supervised(self._y_test)
 
     def _reshape_data(self):
         shape_1 = self._steps_back + 1
@@ -107,7 +102,7 @@ class RecurrentModel(Model):
 
 
     @abstractmethod
-    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error', activation='relu'):
+    def create_model(self, network_shape, optimizer='adam', loss='mean_squared_error', activation='relu', l=0.01, kernel_init='normal'):
         pass
 
     @abstractmethod

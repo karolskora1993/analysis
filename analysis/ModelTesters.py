@@ -15,7 +15,7 @@ class SimpleTester(ModelTester):
         mean = y_mean.mean()
         ss_res = sum((y_true - y_pred) ** 2)
         ss_tot = sum((y_true - mean) ** 2)
-        return 1 - ss_res / ss_tot
+        return 1 - ss_res[0] / ss_tot[0]
 
 class LassoTester(ModelTester):
     def test_model(self, model, x_test, y_test, y_train):

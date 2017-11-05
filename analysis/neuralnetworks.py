@@ -1,10 +1,10 @@
-from keras.optimizers import Adadelta, adam
+from keras.optimizers import Adadelta, Adam
 from keras.activations import elu, relu
+from keras.initializers import random_normal, glorot_uniform
 from DataStandarizers import SimpleStandarizer
 from ModelTesters import SimpleTester, LassoTester
-from Models import KerasMLPModel, KerasSimpleRNNModel, KerasConvLSTMModel, KerasLSTMModel, KerasConvModel
+from Models import KerasMLPModel, KerasSimpleRNNModel, KerasLSTMModel
 from helpers.DataHandler import save_stats_txt, save_stats_xls, load_data, load_block_vars, save_model
-from sklearn.utils import shuffle
 import sys
 import os
 import pandas as pd
@@ -15,30 +15,62 @@ COL_NAMES = ['in', 'control', 'out', 'delay']
 BATCH_SIZE = 500
 DROPOUT = 0.4
 TIMESTEPS = 10
-OPTIMIZER = adam()
-ACTIVATION = relu
+OPTIMIZER = [Adam(), Adadelta()]
+ACTIVATION = [relu, elu]
+KERNEL_INITS = [random_normal()]
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v4/'
-MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/'
+MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/serialized/'
 SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/'
 BLOCK_VARS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
 BLOCK_NAMES = [
     # 'blok I',
     # 'blok II',
-    'blok III',
-    # 'blok IV'
+    # 'blok III',
+    'blok IV'
 ]
 
 
-def get_network_shape():
-    network_shape = None
+NETWORK_SHAPES = [
+    (10,),
+    (15,),
+    (20,),
+    (20, 10),
+    (30, 10),
+    (40, 10),
+    (40, 20),
+    (40, 30),
+    (50, 30),
+    (60, 30),
+    (20, 10, 5),
+    (30, 20, 5),
+    (30, 20, 10),
+    (40, 20, 10),
+    (50, 30, 20),
+    (60, 40, 20),
+    (80, 40, 20),
+    (80, 60, 20),
+    (80, 60, 40),
+    (100, 40, 20),
+    (40, 20, 10, 5),
+    (50, 20, 10, 5),
+    (50, 30, 20, 10),
+    (60, 40, 20, 10),
+    (70, 40, 20, 10),
+    (70, 50, 30, 10),
+    (70, 50, 30, 20),
+    (80, 60, 40, 20),
+    (100, 60, 40, 20),
+    (80, 60, 40, 20, 5),
+    (100, 60, 40, 20, 10)
+]
+
+
+def get_number_of_epochs():
     if len(sys.argv) > 1:
-        cmd_line_args = []
-        for i, arg in enumerate(sys.argv):
-            if i > 0:
-                cmd_line_args.append(int(arg))
-        network_shape = tuple(cmd_line_args)
-    return (network_shape[:-1], network_shape[-1]) if network_shape else (None, 1)
+        return int(sys.argv[1])
+    else:
+        return 1
 
 
 def shift_data(input_data, output_data, delay):
@@ -51,10 +83,12 @@ def model_block(block_name, data, var_names):
     vars_in = var_names['in'].append(var_names['control']).dropna().tolist()
     vars_out = var_names['out'].dropna().tolist()
     delays = var_names['delay']
-
     block_models = []
-    network_shape, epochs = get_network_shape()
-    if block_name == "blok III":
+    epochs = get_number_of_epochs()
+    model_type = KerasMLPModel
+    model_name = "MLP"
+
+    if block_name == "a":
         data = cut_data(data)
         LAST_TRAIN_IDX = 205038 // 70
         LAST_VALIDATE_IDX = 257133 // 70
@@ -65,27 +99,46 @@ def model_block(block_name, data, var_names):
     input_data = data[vars_in].as_matrix()
 
     for i, var_out in enumerate(vars_out):
-        print('var_out:\t{0}'.format(var_out))
         output_data = data[var_out].values
         delay = int(delays[i]) if delays[i] >= 1 else 0
+        best_r2 = (0, 0, 0)
+        best_network_shape, best_model, best_activation, best_optimizer, best_kernel_init = [None] * 5
+
         if delay > 0:
             x, y = shift_data(input_data, output_data, delay)
         else:
             x, y = input_data, output_data
 
-        model = KerasMLPModel(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer())
-        model.create_model(network_shape, optimizer=OPTIMIZER, dropout=DROPOUT, activation=ACTIVATION)
-        model.train_model(epochs, batch_size=BATCH_SIZE)
+        for network_shape in NETWORK_SHAPES:
+            for activation in ACTIVATION:
+                for optimizer in OPTIMIZER:
+                    for kernel_init in KERNEL_INITS:
+                        model = model_type(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer(),
+                                           steps_back=TIMESTEPS)
+                        model.create_model(network_shape=network_shape,
+                                           optimizer=optimizer,
+                                           dropout=DROPOUT,
+                                           activation=activation,
+                                           l=0.05,
+                                           kernel_init=kernel_init)
+                        model.train_model(epochs, batch_size=BATCH_SIZE)
+                        r2 = model.test_model()
+                        if r2[1] > best_r2[1] and abs(r2[1] - r2[2]) < 0.4 and r2[0] > 0.3:
+                            best_network_shape = network_shape
+                            best_r2 = r2
+                            best_model = model
+                            best_activation = activation.__name__
+                            best_optimizer = str(optimizer)
+                            best_kernel_init = str(kernel_init)
 
-        r2 = model.test_model()
-        block_models.append([var_out, r2[0], r2[1], r2[2]])
-        SAVE_FILE_NAME = '{blok}_score_{network_shape}_{epochs}epochs_{model}'.format(blok=block_name,
-                                                                                          network_shape=network_shape,
-                                                                                          epochs=epochs,
-                                                                                          model=model).replace(' ', '')
-        save_stats_path = SCORE_SAVE_PATH + SAVE_FILE_NAME.format(var_out=var_out, network_shape=network_shape, epochs=epochs)
-    if network_shape:
-        save_stats_xls(save_stats_path + '.xlsx', block_models, ['var_out', 'r2_test', 'r2_validate', 'r2_train'])
+        if best_r2[1] > 0.4:
+            block_models.append([var_out, best_network_shape, best_activation, best_optimizer, best_kernel_init, best_r2[0], best_r2[1], best_r2[2]])
+            file_name = "{0}_{1}_{2}".format(block_name, var_out, model_name)
+            best_model.save_model(MODEL_SAVE_PATH, file_name)
+
+    if block_models:
+        save_stats_path = SCORE_SAVE_PATH + "{0}_{1}_{2}epochs.xlsx".format(block_name.replace(" ", ""), model_name, epochs)
+        save_stats_xls(save_stats_path, block_models, ['var_out', 'network_shape', 'activation', 'optimizer', 'kernel_init',  'r2_test', 'r2_validate', 'r2_train'])
 
 def cut_data(data):
     values = data.values[0::70, :]

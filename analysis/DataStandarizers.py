@@ -1,5 +1,9 @@
 from sklearn.preprocessing import StandardScaler
 from abc import ABC, abstractmethod
+import pickle
+import os
+HOME_PATH = str(os.path.expanduser('~')+'/')
+LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/scalers/'
 
 class DataStandarizer(ABC):
     def fit(self, x_train, y_train):
@@ -7,6 +11,9 @@ class DataStandarizer(ABC):
         self._input_scaler.fit(x_train)
         self._output_scaler = StandardScaler()
         self._output_scaler.fit(y_train.reshape(-1, 1))
+        # pickle.dump(self._input_scaler, open(LOAD_PATH + 'blokIV_in_scaller.p', 'wb'))
+        # pickle.dump(self._output_scaler, open(LOAD_PATH + 'blokIV_out_scaller.p', 'wb'))
+        # print("fit")
 
     @abstractmethod
     def standarize_data(self, input_data, output_data):
