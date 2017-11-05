@@ -6,13 +6,18 @@ HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/scalers/'
 
 class DataStandarizer(ABC):
+
+    def __init__(self, var_out):
+        self.var_out = var_out
+
+
     def fit(self, x_train, y_train):
         self._input_scaler = StandardScaler()
         self._input_scaler.fit(x_train)
         self._output_scaler = StandardScaler()
         self._output_scaler.fit(y_train.reshape(-1, 1))
         # pickle.dump(self._input_scaler, open(LOAD_PATH + 'blokIV_in_scaller.p', 'wb'))
-        # pickle.dump(self._output_scaler, open(LOAD_PATH + 'blokIV_out_scaller.p', 'wb'))
+        # pickle.dump(self._output_scaler, open(LOAD_PATH + 'blokIV_out_{0}_scaller.p'.format(self.var_out), 'wb'))
         # print("fit")
 
     @abstractmethod

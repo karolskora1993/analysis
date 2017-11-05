@@ -24,10 +24,10 @@ MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/serialized/'
 SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/'
 BLOCK_VARS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
 BLOCK_NAMES = [
-    # 'blok I',
+    'blok I',
     # 'blok II',
     # 'blok III',
-    'blok IV'
+    # 'blok IV'
 ]
 
 
@@ -113,7 +113,7 @@ def model_block(block_name, data, var_names):
             for activation in ACTIVATION:
                 for optimizer in OPTIMIZER:
                     for kernel_init in KERNEL_INITS:
-                        model = model_type(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer(),
+                        model = model_type(x, y, LAST_TRAIN_IDX, LAST_VALIDATE_IDX, SimpleTester(), SimpleStandarizer(var_out),
                                            steps_back=TIMESTEPS)
                         model.create_model(network_shape=network_shape,
                                            optimizer=optimizer,

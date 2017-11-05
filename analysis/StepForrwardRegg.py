@@ -107,42 +107,35 @@ def delay(TrIn, TrOut):
     TrOut.reset_index(inplace=True)
     return TrIn.iloc[:,1:], TrOut.iloc[:,1:], 1
 
-def transfo(TrIn, TrOut):
-    X = TrIn.copy()
+def transfo(X):
+    temp = X.copy()
     diffs = [1, 2, 3, 4, 5]
+    rolls = [5, 10, 15]
+
     for df in diffs:
-        for colname in X.columns:
-            z = X[colname].copy()
+        for colname in temp.columns:
+            z = temp[colname].copy()
             z.name = z.name + '_df' + str(df)
             z = z.diff(df)
-            TrIn = pd.concat([TrIn, z], axis=1)
+            X = pd.concat([X, z], axis=1)
 
-    rolls = [5, 10, 15]
     for roll in rolls:
-        for colname in X.columns:
-            Xr = X[colname].rolling(roll, 1).mean()
-            Xr.name = colname + '_r' + str(roll) + '_mean'
-            TrIn = pd.concat([TrIn, Xr], axis=1)
+        for colname in temp.columns:
+            mean_col = temp[colname].rolling(roll, 1).mean()
+            mean_col.name = colname + '_r' + str(roll) + '_mean'
+            X = pd.concat([X, mean_col], axis=1)
 
-    rolls = [5, 10, 15]
-    for roll in rolls:
-        for colname in X.columns:
-            Xr = X[colname].rolling(roll, 1).min()
-            Xr.name = colname + '_r' + str(roll) + '_min'
-            TrIn = pd.concat([TrIn, Xr], axis=1)
+            min_col = temp[colname].rolling(roll, 1).min()
+            min_col.name = colname + '_r' + str(roll) + '_min'
+            X = pd.concat([X, min_col], axis=1)
 
-    rolls = [5, 10, 15]
-    for roll in rolls:
-        for colname in X.columns:
-            Xr = X[colname].rolling(roll, 1).max()
-            Xr.name = colname + '_r' + str(roll) + '_max'
-            TrIn = pd.concat([TrIn, Xr], axis=1)
+            max_col = temp[colname].rolling(roll, 1).max()
+            max_col.name = colname + '_r' + str(roll) + '_max'
+            X = pd.concat([X, max_col], axis=1)
 
-    TrIn = TrIn.iloc[15:]
-    TrIn.reset_index(inplace=True)
-    TrOut = TrOut.iloc[15:]
-    TrOut.reset_index(inplace=True)
-    return TrIn.iloc[:,1:], TrOut.iloc[:,1:], 15
+    X = X.iloc[15:]
+    X.reset_index(inplace=True)
+    return X
 
 
 def main():
