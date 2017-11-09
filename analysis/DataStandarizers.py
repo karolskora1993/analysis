@@ -16,9 +16,9 @@ class DataStandarizer(ABC):
         self._input_scaler.fit(x_train)
         self._output_scaler = StandardScaler()
         self._output_scaler.fit(y_train.reshape(-1, 1))
-        # pickle.dump(self._input_scaler, open(LOAD_PATH + 'blokIV_in_scaller.p', 'wb'))
+        pickle.dump(self._input_scaler, open(LOAD_PATH + 'blokIII_in_scaller.p', 'wb'))
         # pickle.dump(self._output_scaler, open(LOAD_PATH + 'blokIV_out_{0}_scaller.p'.format(self.var_out), 'wb'))
-        # print("fit")
+        print("fit")
 
     @abstractmethod
     def standarize_data(self, input_data, output_data):

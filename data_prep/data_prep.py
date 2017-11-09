@@ -15,8 +15,11 @@ def prepare_data(X):
         return X
 
 
-def predict(X, model_path):
-    df = pd.DataFrame(X)
+def predict(X, vars, model_path):
+    dict = {}
+    for i, var in enumerate(vars):
+        dict[var] = pd.Series(X[:, i])
+    df = pd.DataFrame(dict)
     block = _get_block(df.shape[1])
     path, ext = os.path.splitext(model_path)
     model_name = path.split('/')[-1]
@@ -25,11 +28,14 @@ def predict(X, model_path):
         for_reg = True
         X = _extend_data(df)
         predictors = _select_predictors(model_name)
-        X = X[predictors]
+        X = X[predictors].as_matrix()
 
     model = _load_serialized_model(model_path, for_reg=for_reg)
-    y_pred = model.predict(X.as_matrix())
-    return _denorm_data(y_pred, block, model_name)
+    y_pred = model.predict(X)
+    if ext.endswith('p'):
+        return y_pred
+    else:
+        return _denorm_data(y_pred, block, model_name)
 
 
 def _select_predictors(var_out):
@@ -61,7 +67,6 @@ def _extend_data(X):
             max_col = temp[colname].rolling(roll, 1).max()
             max_col.name = '{0}_r{1}_max'.format(colname, roll)
             X = pd.concat([X, max_col], axis=1)
-
     X = X.iloc[15:]
     X.reset_index(inplace=True)
     return X
@@ -78,17 +83,20 @@ def _get_block(in_data_length):
 def _load_in_scaler(block):
     scaler_name = '{0}_in_scaller.p'.format(block)
     path = os.path.dirname(os.path.abspath(__file__)) + '/scalers/{0}'.format(scaler_name)
-    return pickle.load(open(path, 'rb'))
+    with open(path, 'rb') as f:
+        model = pickle.load(f)
+    return model
 
 def _load_out_scaler(block, var_name):
     scaler_name = '{0}_out_{1}_scaller.p'.format(block, var_name)
     path = os.path.dirname(os.path.abspath(__file__)) + '/scalers/{0}'.format(scaler_name)
-    return pickle.load(open(path, 'rb'))
-
+    with open(path, 'rb') as f:
+        model = pickle.load(f)
+    return model
 
 def _norm_data(X, block):
     scaler = _load_in_scaler(block)
-    return scaler.transform(X)
+    return scaler.transform(X.as_matrix())
 
 
 def _denorm_data(y, block, var_name):
@@ -98,7 +106,9 @@ def _denorm_data(y, block, var_name):
 
 def _load_serialized_model(path, for_reg):
     if for_reg:
-        return pickle.load(open(path, 'rb'))
+        with open(path, 'rb') as f:
+            model = pickle.load(f)
+        return model
     else:
         return load_model(path)
 

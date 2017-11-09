@@ -1,21 +1,25 @@
 import numpy as np
 import pandas as pd
 from sklearn import linear_model
-from sklearn.ensemble import RandomForestRegressor
-from helpers.DataHandler import save_model
+from helpers.DataHandler import save_model, load_block_vars
 import os
+
 
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v4/'
-SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/'
-MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/'
+SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/nowsze/'
+MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/serialized/nowe/'
+BLOCK_VARS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
 
-BLOCKS = {
-    # 'blok I': 23,
-    'blok II': 36,
-    'blok III': 21,
-    'blok IV': 28
-}
+
+BLOCKS = [
+    # 'blok I',
+    # 'blok II',
+    'blok III',
+    # 'blok IV'
+]
+
+COL_NAMES = ['in', 'control', 'out']
 
 
 
@@ -29,11 +33,13 @@ def calculate_Rkw(y, y_hat, y_mean):
     Rkw = 1 - ss_res/ss_tot
     return Rkw
 
-def load_data(block_name, load_path, InVars = 23):
+def load_data(block_name, load_path):
     df = pd.read_csv(load_path + block_name + '.csv', index_col=0)
-    TrOut = df.iloc[:,InVars+1:-1]
-    TrIn = df.iloc[:,1:InVars + 1]
-    return TrIn, TrOut
+    var_names = load_block_vars(BLOCK_VARS_PATH)[block_name][COL_NAMES]
+
+    vars_in = var_names['in'].append(var_names['control']).dropna().tolist()
+    vars_out = var_names['out'].dropna().tolist()
+    return df[vars_in], df[vars_out]
 
 def findBestRegModel(TrIn1, y, f, delay = 1):
     TrIn = TrIn1.copy()
@@ -107,41 +113,48 @@ def delay(TrIn, TrOut):
     TrOut.reset_index(inplace=True)
     return TrIn.iloc[:,1:], TrOut.iloc[:,1:], 1
 
-def transfo(X):
-    temp = X.copy()
+def transfo(TrIn, TrOut):
+    X = TrIn.copy()
     diffs = [1, 2, 3, 4, 5]
-    rolls = [5, 10, 15]
-
     for df in diffs:
-        for colname in temp.columns:
-            z = temp[colname].copy()
+        for colname in X.columns:
+            z = X[colname].copy()
             z.name = z.name + '_df' + str(df)
             z = z.diff(df)
-            X = pd.concat([X, z], axis=1)
+            TrIn = pd.concat([TrIn, z], axis=1)
 
+    rolls = [5, 10, 15]
     for roll in rolls:
-        for colname in temp.columns:
-            mean_col = temp[colname].rolling(roll, 1).mean()
-            mean_col.name = colname + '_r' + str(roll) + '_mean'
-            X = pd.concat([X, mean_col], axis=1)
+        for colname in X.columns:
+            Xr = X[colname].rolling(roll, 1).mean()
+            Xr.name = colname + '_r' + str(roll) + '_mean'
+            TrIn = pd.concat([TrIn, Xr], axis=1)
 
-            min_col = temp[colname].rolling(roll, 1).min()
-            min_col.name = colname + '_r' + str(roll) + '_min'
-            X = pd.concat([X, min_col], axis=1)
+    rolls = [5, 10, 15]
+    for roll in rolls:
+        for colname in X.columns:
+            Xr = X[colname].rolling(roll, 1).min()
+            Xr.name = colname + '_r' + str(roll) + '_min'
+            TrIn = pd.concat([TrIn, Xr], axis=1)
 
-            max_col = temp[colname].rolling(roll, 1).max()
-            max_col.name = colname + '_r' + str(roll) + '_max'
-            X = pd.concat([X, max_col], axis=1)
+    rolls = [5, 10, 15]
+    for roll in rolls:
+        for colname in X.columns:
+            Xr = X[colname].rolling(roll, 1).max()
+            Xr.name = colname + '_r' + str(roll) + '_max'
+            TrIn = pd.concat([TrIn, Xr], axis=1)
 
-    X = X.iloc[15:]
-    X.reset_index(inplace=True)
-    return X
+    TrIn = TrIn.iloc[15:]
+    TrIn.reset_index(inplace=True)
+    TrOut = TrOut.iloc[15:]
+    TrOut.reset_index(inplace=True)
+    return TrIn.iloc[:,1:], TrOut.iloc[:,1:], 15
 
 
 def main():
 
-    for block, vars_in in BLOCKS.items():
-        TrIn, TrOut = load_data(block, LOAD_PATH, vars_in)
+    for block in BLOCKS:
+        TrIn, TrOut = load_data(block, LOAD_PATH)
         delay = 0
         TrIn = normalize(TrIn, test_end=205039)
 

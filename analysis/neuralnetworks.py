@@ -16,53 +16,37 @@ BATCH_SIZE = 500
 DROPOUT = 0.4
 TIMESTEPS = 10
 OPTIMIZER = [Adam(), Adadelta()]
-ACTIVATION = [relu, elu]
+ACTIVATION = [relu]
 KERNEL_INITS = [random_normal()]
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v4/'
-MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/serialized/'
-SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/'
+MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/serialized/nowe/'
+SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/nowsze/'
 BLOCK_VARS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
 BLOCK_NAMES = [
-    'blok I',
+    # 'blok I',
     # 'blok II',
     # 'blok III',
-    # 'blok IV'
+    'blok IV'
 ]
 
 
 NETWORK_SHAPES = [
-    (10,),
     (15,),
-    (20,),
     (20, 10),
-    (30, 10),
-    (40, 10),
     (40, 20),
-    (40, 30),
     (50, 30),
-    (60, 30),
     (20, 10, 5),
-    (30, 20, 5),
-    (30, 20, 10),
     (40, 20, 10),
-    (50, 30, 20),
     (60, 40, 20),
-    (80, 40, 20),
     (80, 60, 20),
-    (80, 60, 40),
     (100, 40, 20),
     (40, 20, 10, 5),
-    (50, 20, 10, 5),
     (50, 30, 20, 10),
     (60, 40, 20, 10),
     (70, 40, 20, 10),
-    (70, 50, 30, 10),
-    (70, 50, 30, 20),
     (80, 60, 40, 20),
     (100, 60, 40, 20),
-    (80, 60, 40, 20, 5),
-    (100, 60, 40, 20, 10)
 ]
 
 
@@ -85,10 +69,10 @@ def model_block(block_name, data, var_names):
     delays = var_names['delay']
     block_models = []
     epochs = get_number_of_epochs()
-    model_type = KerasMLPModel
-    model_name = "MLP"
+    model_type = KerasSimpleRNNModel
+    model_name = "RNN_all"
 
-    if block_name == "a":
+    if block_name == "aa":
         data = cut_data(data)
         LAST_TRAIN_IDX = 205038 // 70
         LAST_VALIDATE_IDX = 257133 // 70
@@ -119,7 +103,7 @@ def model_block(block_name, data, var_names):
                                            optimizer=optimizer,
                                            dropout=DROPOUT,
                                            activation=activation,
-                                           l=0.05,
+                                           l=0.01,
                                            kernel_init=kernel_init)
                         model.train_model(epochs, batch_size=BATCH_SIZE)
                         r2 = model.test_model()
