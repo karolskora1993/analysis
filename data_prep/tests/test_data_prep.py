@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from data_prep import data_prep
+from data_prep.ModelsHandler import ModelsHandler
 import unittest
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -16,16 +16,24 @@ class Tests(unittest.TestCase):
         var_names = pd.read_excel(BLOCK_VARS_PATH)
         vars = var_names['in'].append(var_names['control']).dropna().tolist()
         in_data = data[vars]
-        x = data_prep.prepare_data(in_data)
+
+        handler = ModelsHandler()
+        x = handler.prepare_data(in_data.as_matrix())
         org_shape = x.shape
         self.assertIsNotNone(x)
         self.assertNotEqual(0, len(x))
         self.assertEqual(x.shape, org_shape)
-        y = data_prep.predict(x, vars, TEST_MODEL_PATH)
+        y = handler.predict(x, vars, TEST_MODEL_PATH)
         self.assertNotEquals(0, len(y))
         self.assertEquals(y.shape[0], org_shape[0])
-        y_reg = data_prep.predict(x, vars, TEST_REG_MODEL_PATH)
+        y_reg = handler.predict(x, vars, TEST_REG_MODEL_PATH)
         self.assertNotEquals(0, len(y_reg))
+
+        y = handler.predict(x, vars, TEST_MODEL_PATH)
+        y_reg = handler.predict(x, vars, TEST_REG_MODEL_PATH)
+        y = handler.predict(x, vars, TEST_MODEL_PATH)
+        y_reg = handler.predict(x, vars, TEST_REG_MODEL_PATH)
+
 
 
 if __name__ == '__main__':

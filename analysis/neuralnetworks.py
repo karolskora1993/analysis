@@ -24,10 +24,10 @@ MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/serialized/nowe/'
 SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/nowsze/'
 BLOCK_VARS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
 BLOCK_NAMES = [
-    # 'blok I',
+    'blok I',
     # 'blok II',
     # 'blok III',
-    'blok IV'
+    # 'blok IV'
 ]
 
 
@@ -70,7 +70,7 @@ def model_block(block_name, data, var_names):
     block_models = []
     epochs = get_number_of_epochs()
     model_type = KerasSimpleRNNModel
-    model_name = "RNN_all"
+    model_name = "RNN"
 
     if block_name == "aa":
         data = cut_data(data)
