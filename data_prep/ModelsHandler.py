@@ -3,10 +3,11 @@ import os
 from keras.models import load_model
 import pandas as pd
 from .params import IN_DATA_LENGTH, PREDICTORS
+from keras import backend as B
+from time import time
 
 
 class ModelsHandler:
-
     def __init__(self):
         self._block = None
         self._in_scaler = None
@@ -14,37 +15,51 @@ class ModelsHandler:
         self._models = {}
 
     def prepare_data(self, data):
-        df = pd.DataFrame(data)
+        reshaped = False
+        if len(data.shape) > 2:
+            data = data.reshape(data.shape[1], data.shape[2])
+            reshaped = True
         if not self._block:
-            self._block = self._get_block(df.shape[1])
+            self._block = self._get_block(data.shape[1])
             self._in_scaler = self._load_in_scaler()
             print("input_scaler loaded")
         if self._block:
-            return self._norm_data(data)
+            normalized = self._norm_data(data)
+            if reshaped:
+                return normalized.reshape(1, normalized.shape[0], normalized.shape[1])
+            else:
+                return normalized
         else:
             print('Original data returned')
             return data
 
-    def predict(self, X, vars, model_path):
-        dict = {}
-        for i, var in enumerate(vars):
-            dict[var] = pd.Series(X[:, i])
-        df = pd.DataFrame(dict)
+    def predict(self, data, vars, model_path):
+
         path, ext = os.path.splitext(model_path)
         model_name = path.split('/')[-1]
         for_reg = False
+
         if ext.endswith('p'):
+            start = time()
             for_reg = True
-            X = self._extend_data(df)
+            dict = {}
+            for i, var in enumerate(vars):
+                dict[var] = pd.Series(data[:, i])
+            df = pd.DataFrame(dict)
+            data = self._extend_data(df)
             predictors = self._select_predictors(model_name)
-            X = X[predictors].as_matrix()
+            data = data[predictors].as_matrix()
+            print('extend data time: {0}'.format(time() - start))
 
         model = self._models.get(model_name, None)
         if not model:
+            start = time()
             model = self._load_serialized_model(model_path, for_reg=for_reg)
             self._models[model_name] = model
             print("new model loaded")
-        y_pred = model.predict(X)
+
+        y_pred = model.predict(data)
+
         if ext.endswith('p'):
             return y_pred
         else:
@@ -72,41 +87,55 @@ class ModelsHandler:
 
     def _extend_data(self, X):
         temp = X.copy()
+
         diffs = [1, 2, 3, 4, 5]
         rolls = [5, 10, 15]
 
-        for df in diffs:
-            for colname in temp.columns:
-                z = temp[colname].copy()
-                z.name = '{0}_df{1}'.format(z.name, df)
-                z = z.diff(df)
-                X = pd.concat([X, z], axis=1)
+        start = time()
+        diff_cols = {'{0}_df{1}'.format(colname, diffs[i]): temp[colname].diff(diffs[i]) for i in range(5) for colname in temp.columns}
+        diff_df = pd.DataFrame.from_dict(diff_cols)
+        X = pd.concat([X, diff_df], axis=1)
+        print('diff:: {0}'.format(time() - start))
 
-        for roll in rolls:
-            for colname in temp.columns:
-                mean_col = temp[colname].rolling(roll, 1).mean()
-                mean_col.name = '{0}_r{1}_mean'.format(colname, roll)
-                X = pd.concat([X, mean_col], axis=1)
 
-                min_col = temp[colname].rolling(roll, 1).min()
-                min_col.name = '{0}_r{1}_min'.format(colname, roll)
-                X = pd.concat([X, min_col], axis=1)
-
-                max_col = temp[colname].rolling(roll, 1).max()
-                max_col.name = '{0}_r{1}_max'.format(colname, roll)
-                X = pd.concat([X, max_col], axis=1)
+        start = time()
+        means = {'{0}_r{1}_mean'.format(colname, rolls[i]): temp[colname].rolling(rolls[i], 1).mean() for i in range(3) for colname in temp.columns}
+        mins = {'{0}_r{1}_min'.format(colname, rolls[i]): temp[colname].rolling(rolls[i], 1).min() for i in range(3) for colname in temp.columns}
+        maxes = {'{0}_r{1}_max'.format(colname, rolls[i]): temp[colname].rolling(rolls[i], 1).max() for i in range(3) for colname in temp.columns}
+        roll_dict = dict(means, **mins)
+        roll_dict.update(maxes)
+        rolls_df = pd.DataFrame.from_dict(roll_dict)
+        X = pd.concat([X, rolls_df], axis=1)
+        print('rolls:: {0}'.format(time() - start))
         X = X.iloc[15:]
-        X.reset_index(inplace=True)
         return X
+        
+        #
+        # if i < 3:
+        #     start = time()
+        #     mean_col = temp[colname].rolling(rolls[i], 1).mean()
+        #     mean_col.name = '{0}_r{1}_mean'.format(colname, rolls[i])
+        #     X = pd.concat([X, mean_col], axis=1)
+        #
+        #     min_col = temp[colname].rolling(rolls[i], 1).min()
+        #     min_col.name = '{0}_r{1}_min'.format(colname, rolls[i])
+        #     X = pd.concat([X, min_col], axis=1)
+        #
+        #     max_col = temp[colname].rolling(rolls[i], 1).max()
+        #     max_col.name = '{0}_r{1}_max'.format(colname, rolls[i])
+        #     X = pd.concat([X, max_col], axis=1)
+        #     print('rolls:: {0}'.format(time() - start))
 
     def _load_out_scaler(self, var_name):
         scaler_name = '{0}_out_{1}_scaller.p'.format(self._block, var_name)
         path = os.path.dirname(os.path.abspath(__file__)) + '/scalers/{0}'.format(scaler_name)
         with open(path, 'rb') as f:
             scaler = pickle.load(f)
+
         return scaler
 
     def _denorm_data(self, y, var_name):
+
         scaler = self._out_scalers.get(var_name, None)
         if not scaler:
             scaler = self._load_out_scaler(var_name)
@@ -122,12 +151,6 @@ class ModelsHandler:
         else:
             return load_model(path)
 
-
-
-
-
-
-
-
-
-
+    def clear_model(self, model_name):
+        if model_name in self._models:
+            B.clear_session()

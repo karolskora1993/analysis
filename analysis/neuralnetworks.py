@@ -16,16 +16,16 @@ BATCH_SIZE = 500
 DROPOUT = 0.4
 TIMESTEPS = 10
 OPTIMIZER = [Adam(), Adadelta()]
-ACTIVATION = [relu]
+ACTIVATION = [elu]
 KERNEL_INITS = [random_normal()]
 HOME_PATH = str(os.path.expanduser('~')+'/')
 LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v4/'
-MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/serialized/nowe/'
-SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe/nowsze/'
-BLOCK_VARS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v4.xlsx'
+MODEL_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe_bloki/serialized/'
+SCORE_SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/models/stats/nowe_bloki/'
+BLOCK_VARS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v5_temp.xlsx'
 BLOCK_NAMES = [
-    'blok I',
-    # 'blok II',
+    # 'blok I',
+    'blok II',
     # 'blok III',
     # 'blok IV'
 ]
@@ -103,7 +103,7 @@ def model_block(block_name, data, var_names):
                                            optimizer=optimizer,
                                            dropout=DROPOUT,
                                            activation=activation,
-                                           l=0.01,
+                                           l=0.001,
                                            kernel_init=kernel_init)
                         model.train_model(epochs, batch_size=BATCH_SIZE)
                         r2 = model.test_model()
