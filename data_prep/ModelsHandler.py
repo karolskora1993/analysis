@@ -5,7 +5,7 @@ import pandas as pd
 from .params import IN_DATA_LENGTH, PREDICTORS
 from keras import backend as B
 from time import time
-
+import re
 
 class ModelsHandler:
     def __init__(self):
@@ -46,9 +46,10 @@ class ModelsHandler:
             for i, var in enumerate(vars):
                 dict[var] = pd.Series(data[:, i])
             df = pd.DataFrame(dict)
-            data = self._extend_data(df)
+            df, predictors = self._choose_data(df, model_name)
+            df = self._extend_data(df, predictors)
             predictors = self._select_predictors(model_name)
-            data = data[predictors].as_matrix()
+            data = df[predictors].as_matrix()
             print('extend data time: {0}'.format(time() - start))
 
         model = self._models.get(model_name, None)
@@ -64,6 +65,23 @@ class ModelsHandler:
             return y_pred
         else:
             return self._denorm_data(y_pred, model_name)
+
+    def _choose_data(self, df, model_name):
+        predictors = self._select_predictors(model_name)
+        choosen_predictors = {}
+        for predictor in predictors:
+            diff = int(re.findall(r'\d+', predictor)[-1])
+            name = '_'.join(filter(lambda y: not y.startswith(('r', 'd', 'max', 'mean', 'min')), predictor.split('_')))
+            if name in choosen_predictors:
+                choosen_predictors[name].append(diff)
+            else:
+                choosen_predictors[name] = [diff]
+
+
+
+        pred_list = list(set(choosen_predictors.keys()))
+        return df[pred_list], choosen_predictors
+
 
     def _norm_data(self, data):
         return self._in_scaler.transform(data)
@@ -85,46 +103,22 @@ class ModelsHandler:
     def _select_predictors(self, var_out):
         return PREDICTORS[var_out]
 
-    def _extend_data(self, X):
-        temp = X.copy()
-
+    def _extend_data(self, X, predictors):
         diffs = [1, 2, 3, 4, 5]
         rolls = [5, 10, 15]
 
-        start = time()
-        diff_cols = {'{0}_df{1}'.format(colname, diffs[i]): temp[colname].diff(diffs[i]) for i in range(5) for colname in temp.columns}
-        diff_df = pd.DataFrame.from_dict(diff_cols)
-        X = pd.concat([X, diff_df], axis=1)
-        print('diff:: {0}'.format(time() - start))
-
-
-        start = time()
-        means = {'{0}_r{1}_mean'.format(colname, rolls[i]): temp[colname].rolling(rolls[i], 1).mean() for i in range(3) for colname in temp.columns}
-        mins = {'{0}_r{1}_min'.format(colname, rolls[i]): temp[colname].rolling(rolls[i], 1).min() for i in range(3) for colname in temp.columns}
-        maxes = {'{0}_r{1}_max'.format(colname, rolls[i]): temp[colname].rolling(rolls[i], 1).max() for i in range(3) for colname in temp.columns}
+        diff_cols = {'{0}_df{1}'.format(colname, i): X[colname].diff(i) for colname in X.columns for i in diffs if i in predictors[colname]}
+        means = {'{0}_r{1}_mean'.format(colname, i): X[colname].rolling(i, 1).mean() for colname in X.columns for i in rolls if i in predictors[colname]}
+        mins = {'{0}_r{1}_min'.format(colname, i): X[colname].rolling(i, 1).min() for colname in X.columns for i in rolls if i in predictors[colname]}
+        maxes = {'{0}_r{1}_max'.format(colname, i): X[colname].rolling(i, 1).max() for colname in X.columns for i in rolls if i in predictors[colname]}
         roll_dict = dict(means, **mins)
         roll_dict.update(maxes)
+        roll_dict.update(diff_cols)
         rolls_df = pd.DataFrame.from_dict(roll_dict)
         X = pd.concat([X, rolls_df], axis=1)
-        print('rolls:: {0}'.format(time() - start))
         X = X.iloc[15:]
         return X
-        
-        #
-        # if i < 3:
-        #     start = time()
-        #     mean_col = temp[colname].rolling(rolls[i], 1).mean()
-        #     mean_col.name = '{0}_r{1}_mean'.format(colname, rolls[i])
-        #     X = pd.concat([X, mean_col], axis=1)
-        #
-        #     min_col = temp[colname].rolling(rolls[i], 1).min()
-        #     min_col.name = '{0}_r{1}_min'.format(colname, rolls[i])
-        #     X = pd.concat([X, min_col], axis=1)
-        #
-        #     max_col = temp[colname].rolling(rolls[i], 1).max()
-        #     max_col.name = '{0}_r{1}_max'.format(colname, rolls[i])
-        #     X = pd.concat([X, max_col], axis=1)
-        #     print('rolls:: {0}'.format(time() - start))
+
 
     def _load_out_scaler(self, var_name):
         scaler_name = '{0}_out_{1}_scaller.p'.format(self._block, var_name)
