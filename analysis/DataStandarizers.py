@@ -7,10 +7,6 @@ LOAD_PATH = HOME_PATH + 'Dokumenty/analysis/data/scalers/'
 
 class DataStandarizer(ABC):
 
-    def __init__(self, var_out):
-        self.var_out = var_out
-
-
     def fit(self, x_train, y_train):
         self._input_scaler = StandardScaler()
         self._input_scaler.fit(x_train)

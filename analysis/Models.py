@@ -4,6 +4,10 @@ from keras import regularizers
 from keras.layers import Dense, SimpleRNN, Dropout, Flatten, LSTM, Conv1D, MaxPooling1D, GlobalAveragePooling1D
 import numpy as np
 
+from keras.callbacks import EarlyStopping
+
+PATIENCE = 20
+
 class KerasMLPModel(Model):
 
     def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation='relu', l=0.01, kernel_init='normal'):
@@ -20,11 +24,15 @@ class KerasMLPModel(Model):
                         self._model.add(Dense(layer,
                                               input_dim=input_size,
                                               activation=activation,
-                                              kernel_initializer=kernel_init))
+                                              kernel_initializer=kernel_init,
+                                              kernel_regularizer=regularizers.l2(l)
+                                              ))
                     else:
                         self._model.add(Dense(layer,
                                               activation=activation,
-                                              kernel_initializer=kernel_init))
+                                              kernel_initializer=kernel_init,
+                                              kernel_regularizer=regularizers.l2(l)
+                                              ))
                         self._model.add(Dropout(dropout))
 
         self._model.add(Dense(output_size))
@@ -33,7 +41,12 @@ class KerasMLPModel(Model):
         print('Model created')
 
     def _fit(self, x_train, y_train, epochs, validation_data, batch_size=500):
-        self._model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=2, validation_data=validation_data)
+        self._model.fit(x_train, y_train,
+                        epochs=epochs,
+                        batch_size=batch_size,
+                        verbose=2,
+                        validation_data=validation_data,
+                        callbacks=[EarlyStopping(patience=PATIENCE)])
 
     def predict(self, x, batch_size=500):
         return self._model.predict(x, batch_size=batch_size)
@@ -76,7 +89,12 @@ class KerasSimpleRNNModel(RecurrentModel):
         print('Model created')
 
     def _fit(self, x_train, y_train, epochs, validation_data, batch_size=500):
-        self._model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=2, validation_data=validation_data)
+        self._model.fit(x_train, y_train,
+                        epochs=epochs,
+                        batch_size=batch_size,
+                        verbose=2,
+                        validation_data=validation_data,
+                        callbacks=[EarlyStopping(patience=PATIENCE)])
 
     def predict(self, x, batch_size=500):
         return self._model.predict(x, batch_size=batch_size)
@@ -109,7 +127,6 @@ class KerasLSTMModel(RecurrentModel):
             self._model.add(LSTM(5, input_shape=input_dim, activation=activation, return_sequences=True))
 
         self._model.add(Flatten())
-        # self._model.add(Dense(10, activation='relu', kernel_initializer='normal'))
         self._model.add(Dense(output_size))
         self._model.compile(optimizer=optimizer, loss=loss)
         print('Model created')
@@ -125,8 +142,8 @@ class KerasLSTMModel(RecurrentModel):
 
 class KerasConvModel(Model):
 
-    def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None):
-        super().__init__(input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer)
+    def __init__(self, input_data, output_data, last_train_index, last_validate_index):
+        super().__init__(input_data, output_data, last_train_index, last_validate_index)
         self._reshape_data()
 
     def create_model(self, network_shape=None, optimizer='adam', loss='mean_squared_error', dropout=0.5, activation='relu'):
@@ -161,3 +178,5 @@ class KerasConvModel(Model):
 
     def __str__(self):
         return "KerasConv"
+
+

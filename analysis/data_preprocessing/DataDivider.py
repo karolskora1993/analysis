@@ -1,9 +1,10 @@
 import pandas as pd
+import os
 
-BLOCKS_PATH = '/Users/apple/Desktop/mag/bloki_poprawione.xlsx'
-DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v4.csv'
-VARS = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/kolumny.xlsx'
-DEST_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/bloki_v3/'
+HOME_PATH = str(os.path.expanduser('~')+'/')
+BLOCKS_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_poprawione_v5.xlsx'
+DATA_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v5/all.csv'
+DEST_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v5/'
 
 class DataDivider:
     
@@ -32,8 +33,8 @@ class DataDivider:
         return mismatches if len(mismatches) > 0 else None
 
     def divide_into_groups(self):
+        blocks = []
         if not self.find_mismatch():
-            blocks = []
             for key in self.blocks_data.keys():
                 block_vars = []
                 for var_name in self.blocks_data[key]['zmienne']:
@@ -48,9 +49,9 @@ def _main():
     block_names = ['blok I', 'blok II', 'blok III', 'blok IV']
     data_divider = DataDivider(BLOCKS_PATH, block_names, DATA_PATH)
     blocks = data_divider.divide_into_groups()
-    for i, block in enumerate(blocks):
+    for i, block_df in enumerate(blocks):
         block_df.to_csv(DEST_PATH + block_names[i] + '.csv')
-        print('{0} zapisany'.format(key))
+        print('{0} zapisany'.format(block_names[i]))
 
 if __name__ == '__main__':
     _main()

@@ -77,8 +77,6 @@ class ModelsHandler:
             else:
                 choosen_predictors[name] = [diff]
 
-
-
         pred_list = list(set(choosen_predictors.keys()))
         return df[pred_list], choosen_predictors
 

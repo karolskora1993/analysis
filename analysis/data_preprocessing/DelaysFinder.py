@@ -4,14 +4,14 @@ from sklearn import linear_model
 import collections
 
 HOME_PATH = str(os.path.expanduser('~') + '/')
-VARS_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione.xlsx'
-DATA_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v4/'
+VARS_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_poprawione_v5.xlsx'
+DATA_PATH = HOME_PATH + '/Dokumenty/analysis/data/bloki_v5/'
 SAVE_PATH = HOME_PATH + '/Dokumenty/analysis/data/delays/'
 BLOCK_NAMES = [
-    'blok I',
+    # 'blok I',
     'blok II',
-    'blok III',
-    'blok IV'
+    # 'blok III',
+    # 'blok IV'
 ]
 
 COLUMN_NAMES = ['in', 'control', 'out']

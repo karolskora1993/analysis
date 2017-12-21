@@ -1,17 +1,20 @@
 from abc import ABC, abstractmethod
 import pandas as pd
+from ModelTesters import SimpleTester
+from DataStandarizers import SimpleStandarizer
 
+
+DEFAULT_STEPS_BACK = 1
 
 class Model(ABC):
-    def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None, steps_back=1):
-        self._model_tester = model_tester
+    def __init__(self, input_data, output_data, last_train_index, last_validate_index):
+        self._model_tester = SimpleTester()
         self._model = None
         self._last_train_idx = last_train_index
         self._last_validate_idx = last_validate_index
         self._input_scaler = None
         self._output_scaler = None
-        self._model_standarizer = model_standarizer
-        self._steps_back = steps_back
+        self._model_standarizer = SimpleStandarizer()
         self._divide_data(input_data, output_data)
         if self._model_standarizer:
             self.standarize_data()
@@ -70,18 +73,19 @@ class Model(ABC):
 
 class RecurrentModel(Model):
 
-    def __init__(self, input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer=None, steps_back=1):
-        super().__init__(input_data, output_data, last_train_index, last_validate_index, model_tester, model_standarizer, steps_back)
+    def __init__(self, input_data, output_data, last_train_index, last_validate_index):
+        super().__init__(input_data, output_data, last_train_index, last_validate_index)
+        self.steps_back = DEFAULT_STEPS_BACK
         self._transform_data()
         self._reshape_data()
 
     def _shift_data(self, data):
         df = pd.DataFrame(data)
         cols, names = list(), list()
-        for i in range(self._steps_back, -1, -1):
+        for i in range(self.steps_back, -1, -1):
             cols.append(df.shift(i))
 
-        agg = pd.concat(cols, axis=1)[self._steps_back:]
+        agg = pd.concat(cols, axis=1)[self.steps_back:]
         return agg.values
 
     def _transform_data(self):
@@ -90,15 +94,15 @@ class RecurrentModel(Model):
         self._x_test = self._shift_data(self._x_test)
 
     def _reshape_data(self):
-        shape_1 = self._steps_back + 1
-        shape_2 = self._x_train.shape[1] // (self._steps_back + 1)
+        shape_1 = self.steps_back + 1
+        shape_2 = self._x_train.shape[1] // (self.steps_back + 1)
         self._x_train = self._x_train.reshape((self._x_train.shape[0], shape_1, shape_2))
         self._x_validate = self._x_validate.reshape((self._x_validate.shape[0], shape_1, shape_2))
         self._x_test = self._x_test.reshape((self._x_test.shape[0], shape_1, shape_2))
 
-        self._y_train = self._y_train[self._steps_back:]
-        self._y_validate = self._y_validate[self._steps_back:]
-        self._y_test = self._y_test[self._steps_back:]
+        self._y_train = self._y_train[self.steps_back:]
+        self._y_validate = self._y_validate[self.steps_back:]
+        self._y_test = self._y_test[self.steps_back:]
 
 
     @abstractmethod

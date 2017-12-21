@@ -5,7 +5,7 @@ import unittest
 from time import time
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
-TEST_DATA_PATH = DIR_PATH + '/test_data/blokIII_test.csv'
+TEST_DATA_PATH = DIR_PATH + '/test_data/blok III.csv'
 TEST_MODEL_PATH = DIR_PATH + '/test_data/models/S0PC010_1.PIDA.PV.h5'
 TEST_RNN_MODEL_PATH = DIR_PATH + '/test_data/models/S0T302_5A.DACA.PV.h5'
 TEST_REG_MODEL_PATH = DIR_PATH + '/test_data/models/S0N2_6.DACA.PV.p'

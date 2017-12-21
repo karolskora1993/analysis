@@ -1,9 +1,12 @@
 import pandas as pd
 import pickle
+import os
 
-DATA_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v3.csv'
-IDX_PATH = '/Users/apple/Desktop/mag/przestoje_polowa_v2.p'
-SAVE_PATH = '/Users/apple/Desktop/mag/dane/DANE_PO_MODERNIZACJI_VRM/wypelnione/csv_all_v4.csv'
+HOME_PATH = str(os.path.expanduser('~')+'/')
+DATA_PATH = HOME_PATH + 'Dokumenty/analysis/data/all/all_v5.csv'
+SAVE_PATH = HOME_PATH + 'Dokumenty/analysis/data/bloki_v5/all_v5.csv'
+
+IDX_PATH = HOME_PATH + 'Dokumenty/analysis/data/przestoje_polowa_v2.p'
 
 
 def remove(dataframe, indexes, save_path=None):
